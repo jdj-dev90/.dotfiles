@@ -63,9 +63,15 @@ return packer.startup(function(use)
 	use "folke/which-key.nvim"
 	use "ThePrimeagen/harpoon"
 
+<<<<<<< HEAD
 	-- mini
 	use 'echasnovski/mini.files'
 	use 'echasnovski/mini.cursorword'
+=======
+	--[[ mini ]]
+	use 'echasnovski/mini.files' ---
+	use 'echasnovski/mini.cursorword' ---
+>>>>>>> cc0a6b3 (initial migration steps)
 
 	use "b0o/schemastore.nvim"
 
@@ -98,7 +104,7 @@ return packer.startup(function(use)
 
 
 	-- Colorschemes
-	use "rebelot/kanagawa.nvim"
+	use "rebelot/kanagawa.nvim" ---
 
 	-- Completion framework:
 	use "hrsh7th/nvim-cmp" -- The completion plugin
@@ -148,18 +154,27 @@ return packer.startup(function(use)
 		end
 	}
 
+<<<<<<< HEAD
 	-- Telescope
 	use "nvim-telescope/telescope.nvim"
+=======
+	use {
+		"zeioth/garbage-day.nvim",
+		requires = "neovim/nvim-lspconfig",
+	} ---REMOVE---
+
+	-- Telescope
+	use "nvim-telescope/telescope.nvim" ---
+	use "nvim-telescope/telescope-media-files.nvim" ---REMOVE---
+>>>>>>> cc0a6b3 (initial migration steps)
 
 	-- Treesitter
 	use {
 		"nvim-treesitter/nvim-treesitter",
 		run = function() require("nvim-treesitter.install").update { with_sync = true, prefer_git = true } end,
-	}
-	use 'nvim-treesitter/nvim-treesitter-context'
-	--[[ use 'nvim-treesitter/nvim-treesitter-textobjects' ]]
-	use "JoosepAlviste/nvim-ts-context-commentstring"
-	--[[ use "p00f/nvim-ts-rainbow" ]]
+	} ---
+	use 'nvim-treesitter/nvim-treesitter-context' ---
+	use "JoosepAlviste/nvim-ts-context-commentstring" ---
 
 	-- Git
 	use "lewis6991/gitsigns.nvim"
