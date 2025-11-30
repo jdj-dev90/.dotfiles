@@ -1,5 +1,0 @@
-#!/bin/bash
-
-MONARC_DEV_ENV="prod"
-export MONARC_DEV_ENV
-$SCRIPTS/monarc-dev-setup "$@"

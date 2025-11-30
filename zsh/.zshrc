@@ -145,7 +145,9 @@ if [ -f '/home/jordan/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/jord
 
 # Shell integrations
 eval "$(fzf --zsh)"
-eval "$(zoxide init --cmd cd zsh)"
+if [ -z "$DISABLE_ZOXIDE" ]; then
+    eval "$(zoxide init --cmd cd zsh)"
+fi
 
 # fnm
 FNM_PATH="/home/jordan/.local/share/fnm"
@@ -157,44 +159,3 @@ fi
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init - zsh)"
-
-
-# usage
-# $ mkvenv myvirtualenv # creates venv under ~/.virtualenvs/
-# $ venv myvirtualenv   # activates venv
-# $ deactivate          # deactivates venv
-# $ rmvenv myvirtualenv # removes venv
-
-export VENV_HOME="$HOME/.virtualenvs"
-[[ -d $VENV_HOME ]] || mkdir $VENV_HOME
-
-lsvenv() {
-  ls -1 $VENV_HOME
-}
-
-venv() {
-  if [ $# -eq 0 ]
-    then
-      echo "Please provide venv name"
-    else
-      source "$VENV_HOME/$1/bin/activate"
-  fi
-}
-
-mkvenv() {
-  if [ $# -eq 0 ]
-    then
-      echo "Please provide venv name"
-    else
-      python3 -m venv $VENV_HOME/$1
-  fi
-}
-
-rmvenv() {
-  if [ $# -eq 0 ]
-    then
-      echo "Please provide venv name"
-    else
-      rm -r $VENV_HOME/$1
-  fi
-}

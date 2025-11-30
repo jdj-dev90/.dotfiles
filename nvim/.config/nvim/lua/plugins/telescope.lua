@@ -101,7 +101,16 @@ return {
 				},
 			},
 			preview = {
-				filesize_limit = 0.1, -- MB
+				filesize_limit = 25, -- MB
+				treesitter = true,
+				highlight_limit = 10, -- MB - increase from default 1MB
+				filetype_hook = function(filepath, bufnr, opts)
+					-- Ensure .tmpl files get gotmpl filetype in preview
+					if filepath:match("%.tmpl$") then
+						vim.bo[bufnr].filetype = "gotmpl"
+					end
+					return true -- Must return true to continue previewing
+				end,
 			},
 			pickers = {
 				find_files = {
@@ -132,6 +141,5 @@ return {
 
 		telescope.load_extension("fzf")
 
-		require("config.telescope.multigrep").setup()
 	end,
 }

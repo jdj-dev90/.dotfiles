@@ -9,8 +9,12 @@
 	helper = !/usr/bin/gh auth git-credential
 [credential]
 	helper = store
+[includeIf "gitdir:~/code/work/convert_digital/temple-and-webster/"]
+    path = ~/.gitconfig-template_and_webster-github
+[includeIf "gitdir:~/code/work/convert_digital/temple-and-webster/storefront-bff/"]
+    path = ~/.gitconfig-template_and_webster-gitlab
 [includeIf "gitdir:~/code/work/convert_digital/"]
-    path = ~/.gitconfig-work
+    path = ~/.gitconfig-convert
 [init]
 	defaultBranch = main
 [push]
@@ -20,8 +24,11 @@
   undo = reset --soft HEAD^
 [core]
   pager = delta
+[interactive]
+  diffFilter = delta --color-only
 [delta]
   line-numbers = true
+  side-by-side = true
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f

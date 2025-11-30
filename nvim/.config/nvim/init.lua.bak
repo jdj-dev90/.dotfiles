@@ -22,4 +22,4 @@
 -- require "user.whichkey"
 -- require("user.mini")
 -- require("user.autocommands")
-require("user.dbg")
+-- require("user.dbg")

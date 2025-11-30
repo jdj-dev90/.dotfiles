@@ -1,37 +1,318 @@
 #!/usr/bin/env bash
+# tmux-sessionizer — zoxide + fzf, riced w/ Kanagawa
+set -euo pipefail
 
-if [[ $# -eq 1 ]]; then
-    selected=$1
+# ============================
+# Flags
+# ============================
+DEBUG="${DEBUG:-0}"   # 0=off, 1=debug logs, 2=trace(-x)
+DRY_RUN=0
+SELECTED_ARG=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -v|--debug) DEBUG=1 ;;
+    --trace)    DEBUG=2 ;;
+    -n|--dry-run) DRY_RUN=1 ;;
+    --) shift; break ;;
+    *)  [[ -z "${SELECTED_ARG:-}" ]] && SELECTED_ARG="$1" || SELECTED_ARG="$1" ;;
+  esac
+  shift
+done
+
+if [[ "$DEBUG" -ge 2 ]]; then
+  export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]}: '
+  set -x
+fi
+
+# ============================
+# Config
+# ============================
+ROOTS=(
+  "${HOME}/code"
+  "${HOME}/.dotfiles"
+  "${HOME}/uni"
+)
+DOTFILES_DIR="${HOME}/.dotfiles"
+
+MIN_DEPTH="${MIN_DEPTH:-1}"
+MAX_DEPTH="${MAX_DEPTH:-4}"
+
+RIGHT_PERCENT="${RIGHT_PERCENT:-20}"       # right column width; left = 80%
+RIGHT_BOTTOM_PCT="${RIGHT_BOTTOM_PCT:-30}" # bottom inside right
+
+# Kanagawa palette
+KAN_BG="#1f1f28"
+KAN_BG_PLUS="#2a2a37"
+KAN_FG="#dcd7ba"
+KAN_HL="#7e9cd8"
+KAN_HL_WARN="#dca561"
+KAN_ACCENT="#938aa9"
+KAN_INFO="#6a9589"
+KAN_PROMPT="#957fb8"
+KAN_POINTER="#c34043"
+KAN_MARKER="#98bb6c"
+KAN_SPINNER="#7aa89f"
+KAN_BORDER="#363646"
+
+# ============================
+# Helpers
+# ============================
+ts() { date +"%H:%M:%S"; }
+ce() { printf '\033[%sm' "$1" ; }
+log() { [[ "$DEBUG" -ge 1 ]] || return 0; printf "%s[DEBUG %s]%s %s\n" "$(ce '1;36')" "$(ts)" "$(ce '0')" "$*" >&2; }
+warn(){ printf "%s[WARN ]%s %s\n" "$(ce '1;33')" "$(ce '0')" "$*" >&2; }
+die() { printf "%s[ERROR]%s %s\n" "$(ce '1;31')" "$(ce '0')" "$*" >&2; exit 1; }
+
+abs() { cd "$1" 2>/dev/null && pwd -P || true; }
+unique() { awk '!seen[$0]++'; }
+require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Missing command: $1"; }
+
+tmux_server_running() {
+  tmux ls >/dev/null 2>&1
+}
+
+in_roots() {
+  local p="$1"
+  for r in "${ABS_ROOTS[@]}"; do
+    [[ "$p" == "$r"* ]] && return 0
+  done
+  return 1
+}
+
+IGNORE_DIRS=(node_modules .git dist build .cache .next .turbo target .venv .tox .mypy_cache .pytest_cache .gradle .idea .vscode)
+
+should_ignore() {
+  local p="$1"
+  for ig in "${IGNORE_DIRS[@]}"; do
+    [[ "$p" == *"/$ig"* ]] && return 0
+  done
+  return 1
+}
+
+is_project_root() {
+  local d="$1"
+  [[ -d "$d/.git" ]] && return 0
+  [[ -f "$d/package.json" ]] && return 0
+  [[ -f "$d/pyproject.toml" ]] && return 0
+  [[ -f "$d/Pipfile" ]] && return 0
+  [[ -f "$d/go.mod" ]] && return 0
+  [[ -f "$d/Cargo.toml" ]] && return 0
+  [[ -f "$d/composer.json" ]] && return 0
+  [[ -f "$d/pom.xml" || -f "$d/build.gradle" || -f "$d/settings.gradle" ]] && return 0
+  [[ -f "$d/.terraform.lock.hcl" || -d "$d/.terraform" ]] && return 0
+  return 1
+}
+
+# ============================
+# Resolve roots
+# ============================
+declare -a ABS_ROOTS=()
+DOTFILES_ABS=""
+for r in "${ROOTS[@]}"; do
+  ar="$(abs "$r")"
+  if [[ -d "$ar" ]]; then
+    ABS_ROOTS+=("$ar")
+    [[ "$ar" == "$(abs "$DOTFILES_DIR")" ]] && DOTFILES_ABS="$ar"
+  else
+    log "Skip root (not found): $r"
+  fi
+done
+[[ "${#ABS_ROOTS[@]}" -gt 0 ]] || die "No valid roots. Checked: ${ROOTS[*]}"
+
+# ============================
+# Candidate builder (zoxide + find)
+# ============================
+build_candidates() {
+  local -a zlist=() flist=()
+
+  # zoxide
+  if command -v zoxide >/dev/null 2>&1; then
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      local p="${line#* }"
+      [[ -z "$p" ]] && continue
+      if [[ -n "$DOTFILES_ABS" && "$p" == "$DOTFILES_ABS"* ]]; then
+        zlist+=("$p"); continue
+      fi
+      in_roots "$p" || continue
+      should_ignore "$p" && continue
+      is_project_root "$p" || continue
+      zlist+=("$p")
+    done < <(zoxide query -ls 2>/dev/null || true)
+  fi
+
+  # find
+  require_cmd find
+  for root in "${ABS_ROOTS[@]}"; do
+    if [[ -n "$DOTFILES_ABS" && "$root" == "$DOTFILES_ABS" ]]; then
+      while IFS= read -r d; do flist+=("$d"); done < <(find "$root" -type d -print 2>/dev/null)
+    else
+      while IFS= read -r d; do
+        should_ignore "$d" && continue
+        is_project_root "$d" || continue
+        flist+=("$d")
+      done < <(
+        find "$root" \
+          -type d \( $(printf -- '-name %q -o ' "${IGNORE_DIRS[@]}") -false \) -prune -o \
+          -mindepth "$MIN_DEPTH" -maxdepth "$MAX_DEPTH" -type d -print 2>/dev/null
+      )
+    fi
+  done
+
+  { printf '%s\n' "${zlist[@]}"; printf '%s\n' "${flist[@]}"; } | unique
+}
+
+# ============================
+# FZF (Kanagawa rice)
+# ============================
+fzf_pick() {
+  require_cmd fzf
+  local list="$1"
+  [[ -n "$list" ]] || { warn "No candidates"; printf ''; return; }
+
+  local LS="ls -lah --group-directories-first --color=always"
+  command -v exa >/dev/null 2>&1 && LS="exa -la --group-directories-first --icons --git"
+
+  local PREVIEW='
+    P={1};
+    test -d "$P" || exit 0;
+    echo -e "\033[1m$P\033[0m";
+    (cd "$P" && '"$LS"' | sed -n "1,80p");
+    echo;
+    test -d "$P/.git" && (cd "$P" && echo "[git status]" && git -c color.ui=always status -sb || true)
+  '
+
+  printf '%s\n' "$list" | fzf \
+    --prompt="  " \
+    --pointer="" \
+    --marker="" \
+    --height=40% --layout=reverse --border=rounded --ansi --tabstop=2 \
+    --color="fg:${KAN_FG},bg:${KAN_BG},hl:${KAN_HL}" \
+    --color="fg+:${KAN_FG},bg+:${KAN_BG_PLUS},hl+:${KAN_HL}" \
+    --color="info:${KAN_INFO},prompt:${KAN_PROMPT},pointer:${KAN_POINTER},marker:${KAN_MARKER},spinner:${KAN_SPINNER},border:${KAN_BORDER}" \
+    --preview="$PREVIEW" --preview-window=down,45%,border-rounded \
+  || true
+}
+
+# ============================
+# Picker
+# ============================
+pick_dir() {
+  if [[ -n "${SELECTED_ARG:-}" ]]; then
+    printf '%s\n' "$SELECTED_ARG"
+    return
+  fi
+  local list
+  list="$(build_candidates)"
+  fzf_pick "$list"
+}
+
+# ============================
+# tmux layout helpers
+# ============================
+set_main_pane() { tmux set -w -t "$1:" @main_pane_id "$2" >/dev/null; }
+get_main_pane() { tmux show -w -v -t "$1:" @main_pane_id 2>/dev/null || true; }
+
+focus_main_pane() {
+  local sid="$1" main all first
+  main="$(get_main_pane "$sid")"
+  all="$(tmux list-panes -t "$sid:" -F '#{pane_id}')" || return 0
+  if [[ -z "${main:-}" ]] || ! grep -qx "$main" <<<"$all"; then
+    first="$(head -n1 <<<"$all")"
+    [[ -n "${first:-}" ]] && tmux select-pane -t "$first" >/dev/null 2>&1 || true
+  else
+    tmux select-pane -t "$main" >/dev/null 2>&1 || true
+  fi
+}
+
+ensure_session() {
+  local selected="$1" selected_name="$2"
+
+  require_cmd tmux
+  if ! tmux has-session -t "$selected_name" 2>/dev/null; then
+    tmux -u new-session -ds "$selected_name" -c "$selected"
+    tmux rename-window -t "$selected_name:" " ${selected_name}"
+  fi
+
+  local pane_count
+  pane_count="$(tmux list-panes -t "$selected_name:" -F '#{pane_id}' | wc -l | tr -d ' ' | sed 's/[^0-9]//g')"
+  if [[ "${pane_count:-0}" -le 1 ]]; then
+    local LEFT RIGHT WW right_cols
+    LEFT="$(tmux display-message -p -t "$selected_name:" '#{pane_id}')"
+    set_main_pane "$selected_name" "$LEFT"
+
+    tmux split-window -h -t "$selected_name:" -c "$selected"
+    RIGHT="$(tmux display-message -p -t "$selected_name:" '#{pane_id}')"
+
+    WW="$(tmux display-message -p -t "$selected_name:" '#{window_width}')"
+    right_cols=$(( WW * RIGHT_PERCENT / 100 ))
+    tmux resize-pane -t "$RIGHT" -x "$right_cols"
+
+    tmux split-window -v -t "$RIGHT" -p "$RIGHT_BOTTOM_PCT" -c "$selected"
+    tmux select-pane -t "$LEFT"
+    tmux display-message "Loaded project: ${selected_name}"
+  else
+    focus_main_pane "$selected_name"
+  fi
+}
+
+# ============================
+# Pane lookup (avoid duplicate tabs)
+# ============================
+find_target_for_path() {
+  local target_path
+  target_path="$(abs "$1")"
+
+  # If no server, nothing to find — return empty safely (avoid set -e exit)
+  if ! tmux_server_running; then
+    echo ""
+    return 0
+  fi
+
+  # "<session>:<win>.<pane> <pane_current_path>"
+  tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{pane_current_path}' 2>/dev/null \
+    | awk -v p="$target_path" '$0 ~ (" " p "$") { print $1; exit }' || true
+}
+
+# ============================
+# Main
+# ============================
+selected="$(pick_dir)"
+[[ -z "${selected:-}" ]] && exit 0
+selected="$(abs "$selected")"
+
+selected_name="_$(basename "$selected" | tr . _)"
+log "Selected: $selected"
+log "Session : $selected_name"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  log "[DRY-RUN] Would search panes and build tmux layout for '$selected_name' @ '$selected'"
+  exit 0
+fi
+
+# If a pane anywhere is already in this dir, jump there.
+existing_target="$(find_target_for_path "$selected")"
+if [[ -n "$existing_target" ]]; then
+  existing_session="${existing_target%%:*}"
+  existing_window="${existing_target%.*}"
+  if [[ -z "${TMUX:-}" ]]; then
+    exec tmux -u attach -t "$existing_session" \; select-window -t "$existing_window" \; select-pane -t "$existing_target"
+  else
+    tmux switch-client -t "$existing_session"
+    tmux select-window -t "$existing_window"
+    tmux select-pane -t "$existing_target"
+  fi
+  exit 0
+fi
+
+# Otherwise create (or reuse) the per-project session + layout
+ensure_session "$selected" "$selected_name"
+focus_main_pane "$selected_name"
+
+if [[ -z "${TMUX:-}" ]]; then
+  exec tmux -u attach -t "$selected_name"
 else
-    selected=$(find ~/code/work/convert_digital \
-		~/code/personal \
-		~/.dotfiles \
-		~/uni \
-		-mindepth 1 -maxdepth 2 -type d | fzf)
+  tmux switch-client -t "$selected_name"
 fi
 
-if [[ -z $selected ]]; then
-    exit 0
-fi
-
-selected_name=$(basename "$selected" | tr . _)
-tmux_running=$(pgrep tmux)
-
-if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-		echo "A"
-    tmux -u new-session -s $selected_name -c $selected
-    exit 0
-fi
-
-if ! tmux has-session -t=$selected_name 2> /dev/null; then
-		echo "C"
-    tmux -u new-session -ds $selected_name -c $selected
-fi
-
-if [[ -z $TMUX ]] && [[ $tmux_running ]]; then
-		echo "B"
-    tmux -u attach -t $selected_name
-    exit 0
-fi
-
-tmux switch-client -t $selected_name

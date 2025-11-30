@@ -1,42 +1,36 @@
 return {
   {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
+    version = "^1.0.0",
     cmd = { "Mason", "MasonInstall", "MasonUpdate" },
     config = function(_, opts)
       require("mason").setup(opts)
     end,
   },
   {
-    "williamboman/mason-lspconfig.nvim",
+    "mason-org/mason-lspconfig.nvim",
+    version = "^1.0.0",
+    opts = {
+      ensure_installed = { "gopls", "lua_ls" },
+    },
     config = function(_, opts)
-      local lspconfig = require("lspconfig")
-      local util = require("lspconfig.util")
+      require("mason-lspconfig").setup(opts)
       require("mason-lspconfig").setup_handlers({
         function(server)
-          lspconfig[server].setup({})
-        end,
-        ["ts_ls"] = function()
-          lspconfig.ts_ls.setup({
-            root_dir = util.root_pattern(".git"),
-            settings = {
-              completions = {
-                completeFunctionCalls = true,
-              },
-            },
-          })
+          vim.lsp.config(server, {})
         end,
         ["lua_ls"] = function()
-          lspconfig.lua_ls.setup({
+          vim.lsp.config('lua_ls', {
             settings = {
               Lua = {
                 diagnostics = {
                   globals = {
                     "vim",
-                    "luaList", -- KrakenD
-                    "luaTable", -- KrakenD
+                    "luaList",       -- KrakenD
+                    "luaTable",      -- KrakenD
                     "http_response", -- KrakenD
-                    "custom_error", -- KrakenD
-                    "json", -- KrakenD
+                    "custom_error",  -- KrakenD
+                    "json",          -- KrakenD
                   },
                 },
                 workspace = {
@@ -50,20 +44,35 @@ return {
           })
         end,
         ["gopls"] = function()
-          lspconfig.gopls.setup({
+          vim.lsp.config('gopls', {
             settings = {
               gopls = {
                 analyses = {
                   unusedparams = true,
                 },
                 staticcheck = true,
+                -- Improve completion in templates
+                completeUnimported = true,
+                usePlaceholders = true,
+                -- Better diagnostics
+                diagnosticsDelay = "500ms",
               },
             },
-            filetypes = { "go", "gomod", "gotmpl" }, -- Include gotmpl filetype
+            filetypes = { "go", "gomod", "gowork", "gotmpl" }, -- Include gotmpl filetype for Go template support
+            -- Make gopls work even without go.mod
+            root_markers = { "go.mod", "go.work", ".git" },
+            -- Fallback to current directory if no root marker found
+            single_file_support = true,
+            -- Disable semantic tokens to preserve treesitter highlighting
+            on_attach = function(client, bufnr)
+              client.server_capabilities.semanticTokensProvider = nil
+            end,
           })
+          -- Explicitly enable gopls
+          vim.lsp.enable('gopls')
         end,
         ["yamlls"] = function()
-          lspconfig.yamlls.setup({
+          vim.lsp.config('yamlls', {
             settings = {
               yaml = {
                 validate = true,
@@ -91,8 +100,10 @@ return {
             },
           })
         end,
-        ["pyright"] = function()
-          lspconfig.pyright.setup({})
+        ["templ"] = function()
+          -- Disabled: templ LSP has a bug that causes crashes on formatting
+          -- Using none-ls for formatting instead
+          -- Diagnostics/linting for .tmpl files will come from gopls
         end,
       })
     end,

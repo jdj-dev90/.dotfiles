@@ -39,6 +39,11 @@ local options = {
 
 vim.opt.shortmess:append("c")
 
+-- Windows with borders
+vim.o.winborder = 'rounded'
+
+vim.diagnostic.config({ virtual_text = true })
+
 for k, v in pairs(options) do
 	vim.opt[k] = v
 end
