@@ -40,7 +40,7 @@ pulseaudio --start
 
 # Display Resolution
 # ./.screenlayout/work_layout.sh
-./.screenlayout/home_layout.sh
+"$HOME/.screenlayout/home_layout.sh"
 
 # Compositor
 picom -f &
