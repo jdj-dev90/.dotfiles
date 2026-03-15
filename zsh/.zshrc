@@ -28,23 +28,50 @@ setopt autocd		# Automatically cd into typed directory.
 setopt interactive_comments
 
 # Add in zsh plugins
+zinit ice wait"1" lucid
 zinit light zsh-users/zsh-syntax-highlighting
+zinit ice wait"1" lucid
 zinit light zsh-users/zsh-completions
+zinit ice wait"1" lucid
 zinit light zsh-users/zsh-autosuggestions
+zinit ice wait"1" lucid
 zinit light Aloxaf/fzf-tab
 
 # Add in snippets
+zinit ice wait"1" lucid
 zinit snippet OMZP::git
+zinit ice wait"1" lucid
 zinit snippet OMZP::sudo
+zinit ice wait"1" lucid
 zinit snippet OMZP::tmux
+zinit ice wait"1" lucid
 zinit snippet OMZP::archlinux
+zinit ice wait"1" lucid
 zinit snippet OMZP::command-not-found
 
 # Load completions
-autoload -Uz compinit && compinit
+autoload -Uz compinit
+_compdump="${XDG_CACHE_HOME:-$HOME/.cache}/zcompdump-${ZSH_VERSION}"
 _comp_options+=(globdots)		# Include hidden files.
 
-zinit cdreplay -q
+# Defer heavy init until after first prompt
+autoload -Uz add-zsh-hook
+typeset -a _zsh_deferred_cmds
+_zsh_defer() {
+    _zsh_deferred_cmds+=("$*")
+}
+_zsh_run_deferred() {
+    local cmd
+    for cmd in "${_zsh_deferred_cmds[@]}"; do
+        eval "$cmd"
+    done
+    _zsh_deferred_cmds=()
+    add-zsh-hook -d precmd _zsh_run_deferred
+}
+add-zsh-hook precmd _zsh_run_deferred
+
+_zsh_defer 'compinit -C -d "$_compdump"'
+_zsh_defer 'zinit cdreplay -q'
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
@@ -122,12 +149,27 @@ bindkey '^Y' autosuggest-accept
 bindkey -s ^f "tmux-sessionizer\n"
 bindkey -s '^@' 'tmux-splitter\n'
 
-source ~/.zsh_profile
+_zsh_defer 'source ~/.zsh_profile'
 
 # NVIM app selector
 vv() {
   select config in packer lazy
   do NVIM_APPNAME=nvim-$config nvim $@; break; done
+}
+
+# Run a command and copy command + output to clipboard
+copyrun() {
+    local cmd_str output exit_code payload
+    cmd_str=${(qq)@}
+    output="$("$@" 2>&1)"
+    exit_code=$?
+    print -r -- "$output"
+    payload="> $cmd_str"$'\n'"$output"
+    if [[ $exit_code -ne 0 ]]; then
+        payload+=$'\n'"(exit $exit_code)"
+    fi
+    print -rn -- "$payload" | xclip -selection clipboard
+    return $exit_code
 }
 
 # pnpm
@@ -141,21 +183,22 @@ esac
 if [ -f '/home/jordan/google-cloud-sdk/path.zsh.inc' ]; then . '/home/jordan/google-cloud-sdk/path.zsh.inc'; fi
 
 # The next line enables shell command completion for gcloud.
-if [ -f '/home/jordan/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/jordan/google-cloud-sdk/completion.zsh.inc'; fi
+_zsh_defer 'if [ -f "/home/jordan/google-cloud-sdk/completion.zsh.inc" ]; then . "/home/jordan/google-cloud-sdk/completion.zsh.inc"; fi'
 
 # Shell integrations
-eval "$(fzf --zsh)"
-if [ -z "$DISABLE_ZOXIDE" ]; then
-    eval "$(zoxide init --cmd cd zsh)"
-fi
+_zsh_defer 'eval "$(fzf --zsh)"'
+_zsh_defer 'if [ -z "$DISABLE_ZOXIDE" ]; then eval "$(zoxide init --cmd cd zsh)"; fi'
 
 # fnm
 FNM_PATH="/home/jordan/.local/share/fnm"
 if [ -d "$FNM_PATH" ]; then
   export PATH="/home/jordan/.local/share/fnm:$PATH"
-  eval "$(fnm env --use-on-cd --shell zsh)"
+  _zsh_defer 'eval "$(fnm env --use-on-cd --shell zsh)"'
 fi
 
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init - zsh)"
+_zsh_defer 'eval "$(pyenv init - zsh)"'
+
+# opencode
+export PATH=/home/jordan/.opencode/bin:$PATH
