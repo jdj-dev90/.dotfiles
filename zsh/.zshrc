@@ -18,7 +18,8 @@ fi
 source "${ZINIT_HOME}/zinit.zsh"
 
 # Add in Powerlevel10k
-zinit ice depth=1; zinit light romkatv/powerlevel10k
+zinit ice depth=1 wait"0" lucid atload"[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh"
+zinit light romkatv/powerlevel10k
 
 # Enable colors and change prompt:
 autoload -U colors && colors	# Load colors
@@ -74,7 +75,6 @@ _zsh_defer 'compinit -C -d "$_compdump"'
 _zsh_defer 'zinit cdreplay -q'
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 # Keybindings
 bindkey -e
