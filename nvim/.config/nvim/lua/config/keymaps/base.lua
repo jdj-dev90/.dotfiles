@@ -71,4 +71,6 @@ keymap("t", "<C-k>", "<C-\\><C-N><C-w>k", term_opts)
 keymap("t", "<C-l>", "<C-\\><C-N><C-w>l", term_opts)
 
 -- TMUX Sessionizer Script --
-keymap("n", "<C-f>", "<cmd>!tmux neww tmux-sessionizer<CR>", opts)
+vim.keymap.set("n", "<C-f>", function()
+	vim.fn.system({ "tmux", "neww", "tmux-sessionizer" })
+end, opts)

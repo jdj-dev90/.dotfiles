@@ -9,20 +9,24 @@ vim.api.nvim_create_autocmd("LspAttach", {
     local bufmap = function(mode, lhs, rhs)
       vim.keymap.set(mode, lhs, rhs, { buffer = true })
     end
-    bufmap("n", "K", "<cmd>lua vim.lsp.buf.hover()<cr>")
-    bufmap("n", "gd", "<cmd>lua vim.lsp.buf.definition()<cr>")
-    bufmap("n", "gD", "<cmd>lua vim.lsp.buf.declaration()<cr>")
-    bufmap("n", "gi", "<cmd>lua vim.lsp.buf.implementation()<cr>")
-    bufmap("n", "go", "<cmd>lua vim.lsp.buf.type_definition()<cr>")
-    bufmap("n", "gr", "<cmd>lua vim.lsp.buf.references()<cr>")
-    bufmap("n", "gs", "<cmd>lua vim.lsp.buf.signature_help()<cr>")
-    bufmap("n", "<F2>", "<cmd>lua vim.lsp.buf.rename()<cr>")
-    bufmap({ "n", "x" }, "<F3>", "<cmd>lua vim.lsp.buf.format({async = true})<cr>")
-    bufmap("n", "<F4>", "<cmd>lua vim.lsp.buf.code_action()<cr>")
-    bufmap("x", "<F4>", "<cmd>lua vim.lsp.buf.range_code_action()<cr>")
-    bufmap("n", "gl", "<cmd>lua vim.diagnostic.open_float()<cr>")
-    bufmap("n", "[d", "<cmd>lua vim.diagnostic.goto_prev()<cr>")
-    bufmap("n", "]d", "<cmd>lua vim.diagnostic.goto_next()<cr>")
+    bufmap("n", "K", vim.lsp.buf.hover)
+    bufmap("n", "gd", vim.lsp.buf.definition)
+    bufmap("n", "gD", vim.lsp.buf.declaration)
+    bufmap("n", "gi", vim.lsp.buf.implementation)
+    bufmap("n", "go", vim.lsp.buf.type_definition)
+    bufmap("n", "gr", vim.lsp.buf.references)
+    bufmap("n", "gs", vim.lsp.buf.signature_help)
+    bufmap("n", "<F2>", vim.lsp.buf.rename)
+    bufmap({ "n", "x" }, "<F3>", function()
+      vim.lsp.buf.format({ async = true })
+    end)
+    bufmap("n", "<F4>", vim.lsp.buf.code_action)
+    bufmap("x", "<F4>", function()
+      vim.lsp.buf.code_action()
+    end)
+    bufmap("n", "gl", vim.diagnostic.open_float)
+    bufmap("n", "[d", vim.diagnostic.goto_prev)
+    bufmap("n", "]d", vim.diagnostic.goto_next)
   end,
 })
 
@@ -31,7 +35,7 @@ vim.api.nvim_create_autocmd({ "FocusGained", "TermClose", "TermLeave" }, {
   group = augroup("checktime"),
   callback = function()
     if vim.o.buftype ~= "nofile" then
-      vim.cmd("checktime")
+      vim.api.nvim_cmd({ cmd = "checktime" }, {})
     end
   end,
 })
@@ -49,8 +53,8 @@ vim.api.nvim_create_autocmd({ "VimResized" }, {
   group = augroup("resize_splits"),
   callback = function()
     local current_tab = vim.fn.tabpagenr()
-    vim.cmd("tabdo wincmd =")
-    vim.cmd("tabnext " .. current_tab)
+    vim.api.nvim_cmd({ cmd = "tabdo", args = { "wincmd", "=" } }, {})
+    vim.api.nvim_cmd({ cmd = "tabnext", args = { tostring(current_tab) } }, {})
   end,
 })
 
@@ -91,7 +95,9 @@ vim.api.nvim_create_autocmd("FileType", {
   },
   callback = function(event)
     vim.bo[event.buf].buflisted = false
-    vim.keymap.set("n", "q", "<cmd>close<cr>", { buffer = event.buf, silent = true })
+    vim.keymap.set("n", "q", function()
+      vim.api.nvim_win_close(0, false)
+    end, { buffer = event.buf, silent = true })
   end,
 })
 
@@ -171,6 +177,22 @@ vim.filetype.add({
   extension = {
     tmpl = "gotmpl",
   },
+})
+
+-- hclStringInterp uses `contains=ALLBUT` which causes O(n²) syntax parsing
+-- inside heredocs. Redefine both regions without recursive containment.
+vim.api.nvim_create_autocmd("Syntax", {
+  group = augroup("hcl_fix_heredoc_perf"),
+  pattern = { "hcl", "terraform" },
+  callback = function()
+    vim.cmd([[
+      syn clear hclStringInterp
+      syn region hclStringInterp matchgroup=hclBraces start=/\(^\|[^$]\)\$\zs{/ end=/}/ contained
+      syn clear hclHereDocText
+      syn region hclHereDocText start=/<<-\?\z([a-z0-9A-Z]\+\)/ end=/^\s*\z1/
+      hi def link hclHereDocText String
+    ]])
+  end,
 })
 
 -- Disabled: No good formatter for Go templates that generate JSON

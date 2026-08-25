@@ -1,10 +1,10 @@
 -- Viewer options: One may configure the viewer either by specifying a built-in
 -- viewer method:
-vim.g.vimtex_view_method = "zathura"
+vim.g.vimtex_view_method = "general"
 
 -- Or with a generic interface:
-vim.g.vimtex_view_general_viewer = "okular"
-vim.g.vimtex_view_general_options = "--unique file:@pdf#src:@line@tex"
+vim.g.vimtex_view_general_viewer = "/usr/bin/zathura"
+vim.g.vimtex_view_general_options = "--synctex-forward @line:@col:@tex @pdf"
 
 -- VimTeX uses latexmk as the default compiler backend. If you use it, which is
 -- strongly recommended, you probably don't need to configure anything. If you

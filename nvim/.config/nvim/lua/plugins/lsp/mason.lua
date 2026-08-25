@@ -10,15 +10,19 @@ return {
   {
     "mason-org/mason-lspconfig.nvim",
     version = "^1.0.0",
+    dependencies = {
+      "neovim/nvim-lspconfig",
+    },
     opts = {
-      ensure_installed = { "gopls", "lua_ls" },
+      ensure_installed = { "gopls", "lua_ls", "ts_ls" },
     },
     config = function(_, opts)
       require("mason-lspconfig").setup(opts)
-      require("mason-lspconfig").setup_handlers({
-        function(server)
-          vim.lsp.config(server, {})
-        end,
+        require("mason-lspconfig").setup_handlers({
+          function(server)
+            vim.lsp.config(server, {})
+            vim.lsp.enable(server)
+          end,
         ["lua_ls"] = function()
           vim.lsp.config('lua_ls', {
             settings = {
@@ -42,6 +46,7 @@ return {
               },
             },
           })
+          vim.lsp.enable("lua_ls")
         end,
         ["gopls"] = function()
           vim.lsp.config('gopls', {
@@ -73,6 +78,10 @@ return {
         end,
         ["yamlls"] = function()
           vim.lsp.config('yamlls', {
+            cmd = { vim.fn.stdpath("data") .. "/mason/bin/yaml-language-server", "--stdio" },
+            root_dir = function(fname)
+              return vim.fs.root(fname, ".git") or vim.fs.dirname(fname)
+            end,
             settings = {
               yaml = {
                 validate = true,
@@ -98,12 +107,32 @@ return {
                 },
               },
             },
+            single_file_support = true,
           })
+          vim.lsp.enable("yamlls")
         end,
         ["templ"] = function()
           -- Disabled: templ LSP has a bug that causes crashes on formatting
           -- Using none-ls for formatting instead
           -- Diagnostics/linting for .tmpl files will come from gopls
+        end,
+        ["ts_ls"] = function()
+          vim.lsp.config("ts_ls", {
+            cmd = { vim.fn.stdpath("data") .. "/mason/bin/typescript-language-server", "--stdio" },
+            filetypes = { "typescript", "typescriptreact", "javascript", "javascriptreact" },
+            root_markers = { "tsconfig.json", "jsconfig.json", "package.json", ".git" },
+            single_file_support = true,
+            on_attach = function(client)
+              client.server_capabilities.semanticTokensProvider = nil
+            end,
+          })
+          vim.lsp.enable("ts_ls")
+        end,
+        ["vtsls"] = function()
+          -- Intentionally disabled in favor of ts_ls
+        end,
+        ["terraformls"] = function()
+          -- Intentionally disabled: hangs on open by running terraform providers schema
         end,
       })
     end,

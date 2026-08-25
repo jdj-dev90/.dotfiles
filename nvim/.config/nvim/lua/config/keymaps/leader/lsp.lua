@@ -1,86 +1,118 @@
 return {
 	{ "<leader>l", group = "LSP", nowait = true, remap = false },
-	{ "<leader>lI", "<cmd>LspInstallInfo<cr>", desc = "Installer Info", nowait = true, remap = false },
+	{
+		"<leader>lI",
+		function()
+			vim.api.nvim_cmd({ cmd = "LspInstallInfo" }, {})
+		end,
+		desc = "Installer Info",
+		nowait = true,
+		remap = false,
+	},
 	{
 		"<leader>lS",
-		"<cmd>Telescope lsp_dynamic_workspace_symbols<cr>",
+		function()
+			require("telescope.builtin").lsp_dynamic_workspace_symbols()
+		end,
 		desc = "Workspace Symbols",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>la",
-		"<cmd>lua vim.lsp.buf.code_action()<cr>",
+		function()
+			vim.lsp.buf.code_action()
+		end,
 		desc = "Code Action",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>ld",
-		"<cmd>Telescope lsp_document_diagnostics<cr>",
+		function()
+			require("telescope.builtin").lsp_document_diagnostics()
+		end,
 		desc = "Document Diagnostics",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>lf",
-		"<cmd>lua vim.lsp.buf.format({async = true})<cr>",
+		function()
+			vim.lsp.buf.format({ async = true })
+		end,
 		desc = "Format",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>li",
-		"<cmd>LspInfo<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "LspInfo" }, {})
+		end,
 		desc = "Info",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>lj",
-		"<cmd>lua vim.lsp.diagnostic.goto_next()<CR>",
+		function()
+			vim.diagnostic.goto_next()
+		end,
 		desc = "Next Diagnostic",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>lk",
-		"<cmd>lua vim.lsp.diagnostic.goto_prev()<cr>",
+		function()
+			vim.diagnostic.goto_prev()
+		end,
 		desc = "Prev Diagnostic",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>ll",
-		"<cmd>lua vim.lsp.codelens.run()<cr>",
+		function()
+			vim.lsp.codelens.run()
+		end,
 		desc = "CodeLens Action",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>lq",
-		"<cmd>lua vim.lsp.diagnostic.set_loclist()<cr>",
+		function()
+			vim.diagnostic.set_loclist()
+		end,
 		desc = "Quickfix",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>lr",
-		"<cmd>lua vim.lsp.buf.rename()<cr>",
+		function()
+			vim.lsp.buf.rename()
+		end,
 		desc = "Rename",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>ls",
-		"<cmd>Telescope lsp_document_symbols<cr>",
+		function()
+			require("telescope.builtin").lsp_document_symbols()
+		end,
 		desc = "Document Symbols",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>lw",
-		"<cmd>Telescope lsp_workspace_diagnostics<cr>",
+		function()
+			require("telescope.builtin").lsp_workspace_diagnostics()
+		end,
 		desc = "Workspace Diagnostics",
 		nowait = true,
 		remap = false,

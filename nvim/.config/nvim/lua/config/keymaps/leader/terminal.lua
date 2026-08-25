@@ -2,77 +2,100 @@ return {
 	{ "<leader>t", group = "Terminal", nowait = true, remap = false },
 	{
 		"<leader>td",
-		"<cmd>lua _LAZYDOCKER_TOGGLE()<cr>",
+		function()
+			_LAZYDOCKER_TOGGLE()
+		end,
 		desc = "Docker",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tf",
-		"<cmd>ToggleTerm direction=float<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "ToggleTerm", args = { "direction=float" } }, {})
+		end,
 		desc = "Float",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>th",
-		"<cmd>!tmux split-window -h -b<cr>",
+		function()
+			vim.fn.system({ "tmux", "split-window", "-h", "-b" })
+		end,
 		desc = "Split Left",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tj",
-		"<cmd>tmux split-window -v<cr>",
+		function()
+			vim.fn.system({ "tmux", "split-window", "-v" })
+		end,
 		desc = "Split Down",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tk",
-		"<cmd>tmux split-window -v -b<cr>",
+		function()
+			vim.fn.system({ "tmux", "split-window", "-v", "-b" })
+		end,
 		desc = "Split Up",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tl",
-		"<cmd>tmux split-window -h<cr>",
-		desc = "Split Right",
+		function()
+			vim.cmd("vsplit | terminal")
+			vim.cmd("startinsert")
+		end,
+		desc = "Split Right (Terminal)",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tn",
-		"<cmd>lua _LAZYNPM_TOGGLE()<cr>",
+		function()
+			_LAZYNPM_TOGGLE()
+		end,
 		desc = "NPM",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>to",
-		"<cmd>lua _NODE_TOGGLE()<cr>",
+		function()
+			_NODE_TOGGLE()
+		end,
 		desc = "Node",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tp",
-		"<cmd>lua _PYTHON_TOGGLE()<cr>",
+		function()
+			_PYTHON_TOGGLE()
+		end,
 		desc = "Python",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tt",
-		"<cmd>lua _HTOP_TOGGLE()<cr>",
+		function()
+			_HTOP_TOGGLE()
+		end,
 		desc = "Htop",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>tu",
-		"<cmd>lua _NCDU_TOGGLE()<cr>",
+		function()
+			_NCDU_TOGGLE()
+		end,
 		desc = "NCDU",
 		nowait = true,
 		remap = false,

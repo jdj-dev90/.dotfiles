@@ -1,35 +1,45 @@
 return {
 	{
 		"<leader>b",
-		"<cmd>Telescope buffers<cr>",
+		function()
+			require("telescope.builtin").buffers()
+		end,
 		desc = "Buffers",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>cc",
-		"<cmd>bdelete!<CR>",
+		function()
+			vim.api.nvim_buf_delete(0, { force = true })
+		end,
 		desc = "Close Buffer",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>e",
-		"<cmd>lua MiniFiles.open(vim.api.nvim_buf_get_name(0))<cr>",
+		function()
+			MiniFiles.open(vim.api.nvim_buf_get_name(0))
+		end,
 		desc = "Explorer",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>q",
-		"<cmd>q!<CR>",
+		function()
+			vim.api.nvim_cmd({ cmd = "q!" }, {})
+		end,
 		desc = "Quit",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>w",
-		"<cmd>w!<CR>",
+		function()
+			vim.api.nvim_cmd({ cmd = "w!" }, {})
+		end,
 		desc = "Save",
 		nowait = true,
 		remap = false,

@@ -1,0 +1,5 @@
+require("config.options.base")
+require("config.options.ui")
+require("config.options.editing")
+require("config.options.diagnostics")
+require("config.options.netrw")

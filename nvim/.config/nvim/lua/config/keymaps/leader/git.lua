@@ -2,119 +2,153 @@ return {
 	{ "<leader>g", group = "Git", nowait = true, remap = false },
 	{
 		"<leader>gD",
-		"<cmd>:DiffviewOpen main<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "DiffviewOpen", args = { "main" } }, {})
+		end,
 		desc = "Diffview Open main",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gL",
-		"<cmd>:Neogit log<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "Neogit", args = { "log" } }, {})
+		end,
 		desc = "Log",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gP",
-		"<cmd>:Neogit push<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "Neogit", args = { "push" } }, {})
+		end,
 		desc = "Push",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gR",
-		"<cmd>lua require 'gitsigns'.reset_buffer()<cr>",
+		function()
+			require("gitsigns").reset_buffer()
+		end,
 		desc = "Reset Buffer",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gb",
-		"<cmd>Telescope git_branches<cr>",
+		function()
+			require("telescope.builtin").git_branches()
+		end,
 		desc = "Checkout branch",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gc",
-		"<cmd>Telescope git_commits<cr>",
+		function()
+			require("telescope.builtin").git_commits()
+		end,
 		desc = "Checkout commit",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gdc",
-		"<cmd>:DiffviewClose<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "DiffviewClose" }, {})
+		end,
 		desc = "Diffview Close",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gdo",
-		"<cmd>:DiffviewOpen<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "DiffviewOpen" }, {})
+		end,
 		desc = "Diffview Open",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gg",
-		"<cmd>:Neogit<cr>",
+		function()
+			vim.api.nvim_cmd({ cmd = "Neogit" }, {})
+		end,
 		desc = "Neogit",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gj",
-		"<cmd>lua require 'gitsigns'.next_hunk()<cr>",
+		function()
+			require("gitsigns").next_hunk()
+		end,
 		desc = "Next Hunk",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gk",
-		"<cmd>lua require 'gitsigns'.prev_hunk()<cr>",
+		function()
+			require("gitsigns").prev_hunk()
+		end,
 		desc = "Prev Hunk",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gl",
-		"<cmd>lua require 'gitsigns'.blame_line()<cr>",
+		function()
+			require("gitsigns").blame_line()
+		end,
 		desc = "Blame",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>go",
-		"<cmd>Telescope git_status<cr>",
+		function()
+			require("telescope.builtin").git_status()
+		end,
 		desc = "Open changed file",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gp",
-		"<cmd>lua require 'gitsigns'.preview_hunk()<cr>",
+		function()
+			require("gitsigns").preview_hunk()
+		end,
 		desc = "Preview Hunk",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gr",
-		"<cmd>lua require 'gitsigns'.reset_hunk()<cr>",
+		function()
+			require("gitsigns").reset_hunk()
+		end,
 		desc = "Reset Hunk",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gs",
-		"<cmd>lua require 'gitsigns'.stage_hunk()<cr>",
+		function()
+			require("gitsigns").stage_hunk()
+		end,
 		desc = "Stage Hunk",
 		nowait = true,
 		remap = false,
 	},
 	{
 		"<leader>gu",
-		"<cmd>lua require 'gitsigns'.undo_stage_hunk()<cr>",
+		function()
+			require("gitsigns").undo_stage_hunk()
+		end,
 		desc = "Undo Stage Hunk",
 		nowait = true,
 		remap = false,
