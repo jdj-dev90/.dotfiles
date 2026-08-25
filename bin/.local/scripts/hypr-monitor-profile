@@ -1,0 +1,79 @@
+#!/bin/sh
+set -eu
+
+log_file="${HOME}/.cache/hypr-monitor-profile.log"
+config_dir="${HOME}/.config/hypr"
+monitors_docked="${HOME}/.config/hypr/monitors.docked.conf"
+monitors_laptop="${HOME}/.config/hypr/monitors.laptop.conf"
+workspaces_docked="${HOME}/.config/hypr/workspaces.docked.conf"
+workspaces_laptop="${HOME}/.config/hypr/workspaces.laptop.conf"
+active_monitors="${config_dir}/monitors.conf"
+active_workspaces="${config_dir}/workspaces.conf"
+
+is_docked=false
+if [ -d /sys/class/drm ]; then
+  for status_file in /sys/class/drm/*/status; do
+    [ -e "${status_file}" ] || continue
+    output_name="${status_file%/status}"
+    output_name="${output_name##*/}"
+    case "${output_name}" in
+      *eDP*|*LVDS*) continue ;;
+    esac
+    if [ "$(cat "${status_file}" 2>/dev/null)" = "connected" ]; then
+      is_docked=true
+      break
+    fi
+  done
+fi
+
+if [ "${is_docked}" = true ]; then
+  profile_monitors="${monitors_docked}"
+  profile_workspaces="${workspaces_docked}"
+  profile_name="docked"
+else
+  profile_monitors="${monitors_laptop}"
+  profile_workspaces="${workspaces_laptop}"
+  profile_name="laptop"
+fi
+
+{
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "Applying ${profile_name} monitor profile"
+  printf '%s\n' "Monitors: ${profile_monitors}"
+  printf '%s\n' "Workspaces: ${profile_workspaces}"
+} >> "${log_file}"
+
+mkdir -p "${config_dir}"
+if [ -e "${active_monitors}" ] && [ ! -L "${active_monitors}" ]; then
+  rm -f "${active_monitors}"
+fi
+if [ -e "${active_workspaces}" ] && [ ! -L "${active_workspaces}" ]; then
+  rm -f "${active_workspaces}"
+fi
+
+ln -sfn "${profile_monitors}" "${active_monitors}"
+ln -sfn "${profile_workspaces}" "${active_workspaces}"
+
+if command -v hyprctl >/dev/null 2>&1; then
+  hyprctl reload >> "${log_file}" 2>&1 || true
+
+  if [ "${profile_name}" = "docked" ]; then
+    for ws in 1 2 3 4 5 6 7 8 9 10; do
+      hyprctl dispatch workspace "${ws}" >/dev/null 2>&1 || true
+    done
+    hyprctl dispatch moveworkspacetomonitor "1 DP-7" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "2 DP-7" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "3 DP-7" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "4 DP-7" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "5 DP-6" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "6 DP-6" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "7 DP-8" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "8 DP-8" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "9 DP-8" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor "10 DP-8" >/dev/null 2>&1 || true
+  else
+    for ws in 1 2 3 4 5 6 7 8 9 10; do
+      hyprctl dispatch workspace "${ws}" >/dev/null 2>&1 || true
+      hyprctl dispatch moveworkspacetomonitor "${ws} eDP-1" >/dev/null 2>&1 || true
+    done
+  fi
+fi

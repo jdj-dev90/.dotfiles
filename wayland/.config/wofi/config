@@ -1,0 +1,10 @@
+show=drun
+width=80
+height=60
+lines=10
+location=top
+prompt=run
+filter_rate=100
+allow_images=true
+image_size=24
+no_actions=true

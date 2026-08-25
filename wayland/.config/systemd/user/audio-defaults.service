@@ -1,0 +1,11 @@
+[Unit]
+Description=Set default audio sink and volume
+After=pipewire-pulse.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pactl set-default-sink alsa_output.usb-Corsair_CORSAIR_HS70_Pro_Wireless_Gaming_Headset-00.analog-stereo
+ExecStart=/usr/bin/pactl set-sink-volume alsa_output.usb-Corsair_CORSAIR_HS70_Pro_Wireless_Gaming_Headset-00.analog-stereo 100%
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+uid="$(id -u)"
+runtime_dir="${XDG_RUNTIME_DIR:-/run/user/${uid}}"
+
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  sock="$(ls -1t "${runtime_dir}"/wayland-* 2>/dev/null | head -n 1 || true)"
+  if [ -n "${sock}" ]; then
+    WAYLAND_DISPLAY="$(basename "${sock}")"
+    export WAYLAND_DISPLAY
+  fi
+fi
+
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d "${runtime_dir}/hypr" ]; then
+  sig="$(ls -1t "${runtime_dir}/hypr" 2>/dev/null | head -n 1 || true)"
+  if [ -n "${sig}" ]; then
+    HYPRLAND_INSTANCE_SIGNATURE="${sig}"
+    export HYPRLAND_INSTANCE_SIGNATURE
+  fi
+fi
+
+export XDG_RUNTIME_DIR="${runtime_dir}"
+
+exec /usr/bin/waybar

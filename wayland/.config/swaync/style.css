@@ -1,0 +1,105 @@
+* {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 13px;
+}
+
+window#swaync {
+  background: transparent;
+}
+
+#notification-window {
+  background: transparent;
+}
+
+#notification-window box {
+  margin: 0;
+  padding: 0;
+}
+
+#notification-window .notification {
+  min-width: 360px;
+  max-width: 360px;
+}
+
+.control-center {
+  background: #1f1f28;
+  color: #dcd7ba;
+  border: 2px solid #7e9cd8;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.notification {
+  background: #2a2a37;
+  color: #dcd7ba;
+  border: 1px solid #7e9cd8;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 6px 4px;
+}
+
+.notification.critical {
+  border-color: #c34043;
+  box-shadow: 0 0 0 1px #c34043;
+}
+
+.notification .summary {
+  color: #7e9cd8;
+  font-weight: bold;
+}
+
+.notification .body {
+  color: #c8c093;
+}
+
+.notification .time {
+  color: #9c9ca2;
+}
+
+.notification-action {
+  background: #1f1f28;
+  color: #dcd7ba;
+  border: 1px solid #7e9cd8;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin: 4px 2px 0 2px;
+}
+
+.notification-action:hover {
+  background: #2a2a37;
+  border-color: #7e9cd8;
+}
+
+.notification-close-button {
+  background: #1f1f28;
+  color: #dcd7ba;
+  border: 1px solid #7e9cd8;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.notification-close-button:hover {
+  background: #2a2a37;
+  border-color: #c34043;
+}
+
+.control-center .widget {
+  background: #1f1f28;
+  border: 1px solid #7e9cd8;
+  border-radius: 8px;
+  padding: 8px;
+  margin: 6px 4px;
+}
+
+.widget-title {
+  color: #7e9cd8;
+  font-weight: bold;
+}
+
+.dnd {
+  color: #dcd7ba;
+}
+
+.dnd.active {
+  color: #7aa89f;
+}

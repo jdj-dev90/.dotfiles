@@ -1,0 +1,12 @@
+[Unit]
+Description=Waybar status bar
+After=graphical-session.target
+
+[Service]
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+ExecStart=%h/.local/scripts/waybar-start
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
