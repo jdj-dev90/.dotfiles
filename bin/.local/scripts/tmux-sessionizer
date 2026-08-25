@@ -38,9 +38,6 @@ DOTFILES_DIR="${HOME}/.dotfiles"
 MIN_DEPTH="${MIN_DEPTH:-1}"
 MAX_DEPTH="${MAX_DEPTH:-4}"
 
-RIGHT_PERCENT="${RIGHT_PERCENT:-20}"       # right column width; left = 80%
-RIGHT_BOTTOM_PCT="${RIGHT_BOTTOM_PCT:-30}" # bottom inside right
-
 # Kanagawa palette
 KAN_BG="#1f1f28"
 KAN_BG_PLUS="#2a2a37"
@@ -54,6 +51,23 @@ KAN_POINTER="#c34043"
 KAN_MARKER="#98bb6c"
 KAN_SPINNER="#7aa89f"
 KAN_BORDER="#363646"
+
+# ============================
+# Wayland env helpers
+# ============================
+ensure_wayland_env() {
+  local uid runtime_dir socket
+  uid="$(id -u)"
+  runtime_dir="${XDG_RUNTIME_DIR:-/run/user/${uid}}"
+  if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+    if [[ -S "${runtime_dir}/wayland-1" ]]; then
+      export WAYLAND_DISPLAY="wayland-1"
+    elif [[ -S "${runtime_dir}/wayland-0" ]]; then
+      export WAYLAND_DISPLAY="wayland-0"
+    fi
+  fi
+  export XDG_RUNTIME_DIR="${runtime_dir}"
+}
 
 # ============================
 # Helpers
@@ -209,52 +223,212 @@ pick_dir() {
 }
 
 # ============================
-# tmux layout helpers
+# tmux window helpers
 # ============================
-set_main_pane() { tmux set -w -t "$1:" @main_pane_id "$2" >/dev/null; }
-get_main_pane() { tmux show -w -v -t "$1:" @main_pane_id 2>/dev/null || true; }
+ensure_window() {
+  local sid="$1" win_name="$2" win_index="$3" cwd="$4"
+  local existing
 
-focus_main_pane() {
-  local sid="$1" main all first
-  main="$(get_main_pane "$sid")"
-  all="$(tmux list-panes -t "$sid:" -F '#{pane_id}')" || return 0
-  if [[ -z "${main:-}" ]] || ! grep -qx "$main" <<<"$all"; then
-    first="$(head -n1 <<<"$all")"
-    [[ -n "${first:-}" ]] && tmux select-pane -t "$first" >/dev/null 2>&1 || true
+  existing="$(tmux list-windows -t "$sid" -F '#{window_name}' | awk -v n="$win_name" '$0 == n {print n; exit}')"
+  if [[ -n "$existing" ]]; then
+    tmux move-window -t "$sid:$win_index" -s "$sid:$win_name" >/dev/null 2>&1 || true
+    printf 'existing'
   else
-    tmux select-pane -t "$main" >/dev/null 2>&1 || true
+    tmux new-window -d -t "$sid:$win_index" -n "$win_name" -c "$cwd"
+    printf 'created'
   fi
 }
 
-ensure_session() {
+pane_command() {
+  local target="$1"
+  tmux display-message -p -t "$target" '#{pane_current_command}' 2>/dev/null || true
+}
+
+window_pane_count() {
+  local sid="$1" target="$2"
+  tmux list-panes -t "$sid:$target" -F '#{pane_id}' 2>/dev/null | wc -l | tr -d ' ' | sed 's/[^0-9]//g'
+}
+
+pane_ids_by_left() {
+  local sid="$1" target="$2"
+  tmux list-panes -t "$sid:$target" -F '#{pane_id} #{pane_left}' 2>/dev/null \
+    | sort -k2 -n | awk '{print $1}'
+}
+
+leftmost_pane_id() {
+  local sid="$1" target="$2"
+  tmux list-panes -t "$sid:$target" -F '#{pane_id} #{pane_left}' 2>/dev/null \
+    | sort -k2 -n | awk 'NR==1 {print $1; exit}'
+}
+
+ensure_three_panes() {
+  local sid="$1" target="$2" cwd="$3"
+  local count left_pane
+
+  count="$(window_pane_count "$sid" "$target")"
+  if [[ "$count" -eq 1 ]]; then
+    left_pane="$(leftmost_pane_id "$sid" "$target")"
+    [[ -n "$left_pane" ]] || return 0
+    tmux split-window -h -p 20 -t "$left_pane" -c "$cwd"
+    left_pane="$(leftmost_pane_id "$sid" "$target")"
+    tmux split-window -h -p 75 -t "$left_pane" -c "$cwd"
+  elif [[ "$count" -eq 2 ]]; then
+    left_pane="$(leftmost_pane_id "$sid" "$target")"
+    [[ -n "$left_pane" ]] || return 0
+    tmux split-window -h -p 75 -t "$left_pane" -c "$cwd"
+  fi
+}
+
+detect_layout_mode() {
+  if [[ -n "${TMUX_SESSIONIZER_LAYOUT:-}" ]]; then
+    printf '%s' "$TMUX_SESSIONIZER_LAYOUT"
+    return 0
+  fi
+
+  if [[ -d /sys/class/drm ]]; then
+    for status_file in /sys/class/drm/*/status; do
+      [[ -e "$status_file" ]] || continue
+      output_name="${status_file%/status}"
+      output_name="${output_name##*/}"
+      case "$output_name" in
+        *eDP*|*LVDS*) continue ;;
+      esac
+      if [[ "$(cat "$status_file" 2>/dev/null)" == "connected" ]]; then
+        printf '%s' "panes"
+        return 0
+      fi
+    done
+  fi
+
+  if command -v hyprctl >/dev/null 2>&1; then
+    hypr_output="$(hyprctl monitors 2>/dev/null || true)"
+    if [[ -n "$hypr_output" ]]; then
+      if printf '%s\n' "$hypr_output" | grep -q '^Monitor DP-6 '; then
+        printf '%s' "panes"
+        return 0
+      fi
+      if printf '%s\n' "$hypr_output" | grep -q '^Monitor DP-7 '; then
+        printf '%s' "panes"
+        return 0
+      fi
+    fi
+  fi
+
+  printf '%s' "windows"
+}
+
+is_shell_cmd() {
+  case "$1" in
+    bash|zsh|fish|sh|dash) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+sql_escape() {
+  local s="$1"
+  printf "%s" "${s//"'"/"''"}"
+}
+
+opencode_session_for_project() {
+  local dir="$1" escaped project_id session_id
+  command -v opencode >/dev/null 2>&1 || return 0
+  escaped="$(sql_escape "$dir")"
+  project_id="$(opencode db --format tsv "SELECT id FROM project WHERE worktree = '$escaped' ORDER BY time_updated DESC LIMIT 1;" 2>/dev/null | awk 'NR==2 {print $1; exit}')"
+  [[ -n "$project_id" ]] || { printf ""; return 0; }
+  session_id="$(opencode db --format tsv "SELECT id FROM session WHERE project_id = '$project_id' ORDER BY time_updated DESC LIMIT 1;" 2>/dev/null | awk 'NR==2 {print $1; exit}')"
+  printf "%s" "${session_id:-}"
+}
+
+ensure_session_panes() {
   local selected="$1" selected_name="$2"
 
   require_cmd tmux
   if ! tmux has-session -t "$selected_name" 2>/dev/null; then
-    tmux -u new-session -ds "$selected_name" -c "$selected"
-    tmux rename-window -t "$selected_name:" " ${selected_name}"
+    tmux -u new-session -ds "$selected_name" -c "$selected" -n work
   fi
 
-  local pane_count
-  pane_count="$(tmux list-panes -t "$selected_name:" -F '#{pane_id}' | wc -l | tr -d ' ' | sed 's/[^0-9]//g')"
-  if [[ "${pane_count:-0}" -le 1 ]]; then
-    local LEFT RIGHT WW right_cols
-    LEFT="$(tmux display-message -p -t "$selected_name:" '#{pane_id}')"
-    set_main_pane "$selected_name" "$LEFT"
+  ensure_window "$selected_name" work 1 "$selected" >/dev/null
+  ensure_three_panes "$selected_name" work "$selected"
 
-    tmux split-window -h -t "$selected_name:" -c "$selected"
-    RIGHT="$(tmux display-message -p -t "$selected_name:" '#{pane_id}')"
+  mapfile -t pane_ids < <(pane_ids_by_left "$selected_name" work)
+  left_pane="${pane_ids[0]:-}"
+  mid_pane="${pane_ids[1]:-}"
+  right_pane="${pane_ids[2]:-}"
 
-    WW="$(tmux display-message -p -t "$selected_name:" '#{window_width}')"
-    right_cols=$(( WW * RIGHT_PERCENT / 100 ))
-    tmux resize-pane -t "$RIGHT" -x "$right_cols"
+  if [[ -n "$mid_pane" ]]; then
+    cmd="$(pane_command "$mid_pane")"
+    if is_shell_cmd "$cmd"; then
+      tmux send-keys -t "$mid_pane" "nvim" C-m
+    fi
+  fi
 
-    tmux split-window -v -t "$RIGHT" -p "$RIGHT_BOTTOM_PCT" -c "$selected"
-    tmux select-pane -t "$LEFT"
-    tmux display-message "Loaded project: ${selected_name}"
+  if [[ -n "$right_pane" ]]; then
+    cmd="$(pane_command "$right_pane")"
+    if is_shell_cmd "$cmd"; then
+      opencode_session_id="$(opencode_session_for_project "$selected")"
+      if [[ -n "$opencode_session_id" ]]; then
+        tmux send-keys -t "$right_pane" "opencode --session $opencode_session_id" C-m
+      else
+        tmux send-keys -t "$right_pane" "opencode \"$selected\"" C-m
+      fi
+    fi
+  fi
+
+  if [[ -n "$left_pane" ]]; then
+    tmux send-keys -t "$left_pane" C-c
+  fi
+
+  tmux select-window -t "$selected_name:work" >/dev/null 2>&1 || true
+  tmux select-pane -t "$mid_pane" >/dev/null 2>&1 || true
+  tmux display-message "Loaded project: ${selected_name}"
+}
+
+ensure_session_windows() {
+  local selected="$1" selected_name="$2"
+
+  require_cmd tmux
+  if ! tmux has-session -t "$selected_name" 2>/dev/null; then
+    tmux -u new-session -ds "$selected_name" -c "$selected" -n editor
+  fi
+
+  editor_state="$(ensure_window "$selected_name" editor 1 "$selected")"
+  if [[ "$editor_state" == "created" ]]; then
+    tmux send-keys -t "$selected_name:editor.1" "nvim" C-m
   else
-    focus_main_pane "$selected_name"
+    if [[ "$(window_pane_count "$selected_name" editor)" -eq 1 ]]; then
+      cmd="$(pane_command "$selected_name:editor.1")"
+      if is_shell_cmd "$cmd"; then
+        tmux send-keys -t "$selected_name:editor.1" "nvim" C-m
+      fi
+    fi
   fi
+
+  opencode_state="$(ensure_window "$selected_name" opencode 2 "$selected")"
+  if [[ "$opencode_state" == "created" ]]; then
+    opencode_session_id="$(opencode_session_for_project "$selected")"
+    if [[ -n "$opencode_session_id" ]]; then
+      tmux send-keys -t "$selected_name:opencode.1" "opencode --session $opencode_session_id" C-m
+    else
+      tmux send-keys -t "$selected_name:opencode.1" "opencode \"$selected\"" C-m
+    fi
+  else
+    if [[ "$(window_pane_count "$selected_name" opencode)" -eq 1 ]]; then
+      cmd="$(pane_command "$selected_name:opencode.1")"
+      if is_shell_cmd "$cmd"; then
+        opencode_session_id="$(opencode_session_for_project "$selected")"
+        if [[ -n "$opencode_session_id" ]]; then
+          tmux send-keys -t "$selected_name:opencode.1" "opencode --session $opencode_session_id" C-m
+        else
+          tmux send-keys -t "$selected_name:opencode.1" "opencode \"$selected\"" C-m
+        fi
+      fi
+    fi
+  fi
+
+  ensure_window "$selected_name" term 3 "$selected" >/dev/null
+
+  tmux select-window -t "$selected_name:editor" >/dev/null 2>&1 || true
+  tmux display-message "Loaded project: ${selected_name}"
 }
 
 # ============================
@@ -286,6 +460,8 @@ selected_name="_$(basename "$selected" | tr . _)"
 log "Selected: $selected"
 log "Session : $selected_name"
 
+ensure_wayland_env
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
   log "[DRY-RUN] Would search panes and build tmux layout for '$selected_name' @ '$selected'"
   exit 0
@@ -307,12 +483,14 @@ if [[ -n "$existing_target" ]]; then
 fi
 
 # Otherwise create (or reuse) the per-project session + layout
-ensure_session "$selected" "$selected_name"
-focus_main_pane "$selected_name"
+layout_mode="$(detect_layout_mode)"
+case "$layout_mode" in
+  windows) ensure_session_windows "$selected" "$selected_name" ;;
+  *) ensure_session_panes "$selected" "$selected_name" ;;
+esac
 
 if [[ -z "${TMUX:-}" ]]; then
   exec tmux -u attach -t "$selected_name"
 else
   tmux switch-client -t "$selected_name"
 fi
-
