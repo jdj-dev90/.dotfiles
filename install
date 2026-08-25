@@ -1,12 +1,32 @@
 #!/usr/bin/env bash
+set -uo pipefail
 
-pushd $DOTFILES
-for folder in $(echo $STOW_FOLDERS | sed "s/,/ /g")
-do
-    echo "stow $folder"
-    stow -D $folder
-    stow $folder
+# --restow rather than `stow -D` followed by `stow`. The two-step form deletes
+# every symlink and then recreates it, which has two problems: a program
+# watching a config file sees it vanish and may fall back to defaults without
+# recovering when it reappears (Hyprland does exactly this), and if anything
+# fails between the two steps the dotfiles are left entirely unlinked.
+#
+# Failures are collected rather than aborting on the first one. Stowing is
+# per-package and independent, so one bad package should not stop the rest --
+# but the script must still exit non-zero, or a real failure is invisible to
+# whatever ran it. The previous version had no error handling at all and
+# reported success while silently failing to stow a package.
+cd "$DOTFILES" || exit 1
+
+failed=()
+IFS=',' read -ra folders <<< "$STOW_FOLDERS"
+for folder in "${folders[@]}"; do
+  echo "stow $folder"
+  if ! stow --restow --target="$HOME" "$folder"; then
+    failed+=("$folder")
+  fi
 done
-popd
 
-
+if [ ${#failed[@]} -gt 0 ]; then
+  echo
+  echo "FAILED to stow: ${failed[*]}" >&2
+  echo "A target usually already exists and was not created by stow -- check it," >&2
+  echo "remove it if it is a hand-made symlink, then re-run." >&2
+  exit 1
+fi
