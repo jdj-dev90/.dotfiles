@@ -16,7 +16,7 @@ export OBSIDIAN_REST_API_KEY="17d18e709ceda1459d6c40e547783d58d1164259b370dd1bb8
 
 export DOTFILES=$HOME/.dotfiles
 export SCRIPTS=$HOME/.dotfiles/bin/.local/scripts
-export STOW_FOLDERS="bin,nvim,tmux,zsh,x11,gitconfig,screenlayout,wallpapers"
+export STOW_FOLDERS="bin,nvim,tmux,zsh,wayland,ghostty,gitconfig,wallpapers,ssh"
 export EDITOR=/usr/bin/nvim
 
 export PATH="/home/jordan/.scripts:/home/jordan/.local/bin:/home/jordan/.local/scripts:/home/jordan/.krew/bin:/home/jordan/tools/azure-functions-cli:$PATH"

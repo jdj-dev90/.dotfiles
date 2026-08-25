@@ -29,11 +29,11 @@ setopt autocd		# Automatically cd into typed directory.
 setopt interactive_comments
 
 # Add in zsh plugins
-zinit ice wait"1" lucid
+zinit ice lucid
 zinit light zsh-users/zsh-syntax-highlighting
-zinit ice wait"1" lucid
+zinit ice lucid
 zinit light zsh-users/zsh-completions
-zinit ice wait"1" lucid
+zinit ice lucid
 zinit light zsh-users/zsh-autosuggestions
 zinit ice wait"1" lucid
 zinit light Aloxaf/fzf-tab
@@ -71,8 +71,8 @@ _zsh_run_deferred() {
 }
 add-zsh-hook precmd _zsh_run_deferred
 
-_zsh_defer 'compinit -C -d "$_compdump"'
-_zsh_defer 'zinit cdreplay -q'
+compinit -C -d "$_compdump"
+zinit cdreplay -q
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
@@ -169,7 +169,11 @@ copyrun() {
     if [[ $exit_code -ne 0 ]]; then
         payload+=$'\n'"(exit $exit_code)"
     fi
-    print -rn -- "$payload" | xclip -selection clipboard
+    if ! command -v wl-copy >/dev/null 2>&1; then
+        print -r -- "copyrun: wl-copy not found" >&2
+        return 1
+    fi
+    print -rn -- "$payload" | wl-copy
     return $exit_code
 }
 
@@ -190,10 +194,12 @@ _zsh_defer 'if [ -f "/home/jordan/google-cloud-sdk/completion.zsh.inc" ]; then .
 _zsh_defer 'eval "$(fzf --zsh)"'
 _zsh_defer 'if [ -z "$DISABLE_ZOXIDE" ]; then eval "$(zoxide init --cmd cd zsh)"; fi'
 
-# fnm
-FNM_PATH="/home/jordan/.local/share/fnm"
-if [ -d "$FNM_PATH" ]; then
-  export PATH="/home/jordan/.local/share/fnm:$PATH"
+# fnm -- prefer a manual install if present, else whatever is on PATH
+# (the packaged one). Guarding on the directory alone meant a machine with fnm
+# installed from the repos would never initialise it.
+FNM_PATH="$HOME/.local/share/fnm"
+[ -d "$FNM_PATH" ] && export PATH="$FNM_PATH:$PATH"
+if command -v fnm >/dev/null 2>&1; then
   _zsh_defer 'eval "$(fnm env --use-on-cd --shell zsh)"'
 fi
 
@@ -204,3 +210,7 @@ _zsh_defer 'eval "$(pyenv init - zsh)"'
 # opencode
 export PATH=/home/jordan/.opencode/bin:$PATH
 export PATH=/usr/local/go/bin:$PATH
+export PATH="$HOME/.local/bin:$PATH"
+eval "$(/home/jordan/.local/bin/mise activate zsh)"
+eval 
+TEMPO_AC_ZSH_SETUP_PATH=/home/jordan/.cache/tempomat/autocomplete/zsh_setup && test -f $TEMPO_AC_ZSH_SETUP_PATH && source $TEMPO_AC_ZSH_SETUP_PATH; # tempo autocomplete setup
