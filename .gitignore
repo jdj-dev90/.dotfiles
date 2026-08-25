@@ -1,1 +1,9 @@
 ./nvim/.config/nvim/plugin/packer_compiled.lua
+
+# Screen captures -- never published. Screenshots are the likeliest place for an
+# accidental credential or client-data leak, and this repo is public.
+screenshots/
+
+# The real SSH config names work hosts, internal addresses and client aliases.
+# Track the template instead; copy it to config and add private hosts locally.
+ssh/.ssh/config
