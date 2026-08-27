@@ -77,3 +77,13 @@ if command -v hyprctl >/dev/null 2>&1; then
     done
   fi
 fi
+
+# Re-flow any live tmux sessions so they match the new profile.
+if command -v tmux-layout-profile >/dev/null 2>&1; then
+  if [ "${profile_name}" = "docked" ]; then
+    tmux_mode=panes
+  else
+    tmux_mode=windows
+  fi
+  tmux-layout-profile "${tmux_mode}" >> "${log_file}" 2>&1 || true
+fi

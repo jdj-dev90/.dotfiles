@@ -43,6 +43,20 @@ Current `STOW_FOLDERS` source of truth is in `zsh/.zsh_profile`.
   - repoints `monitors.conf` and `workspaces.conf` symlinks
   - triggers `hyprctl reload`
   - remaps workspaces to expected monitors
+  - reshapes live tmux sessions via `tmux-layout-profile` to match the profile
+
+### tmux layout profiles
+
+`tmux-sessionizer` builds one of two shapes per project session, chosen by the
+same docked/laptop DRM check:
+
+- docked: one `work` window, three side-by-side panes (term | nvim | opencode)
+- laptop: three windows (`1 editor`, `2 opencode`, `3 term`)
+
+Sessions keep the shape they were created with, so `bin/.local/scripts/tmux-layout-profile`
+converts existing sessions between the two by moving panes (`break-pane` /
+`join-pane`) rather than killing them. Bound to `prefix M-r` (auto),
+`prefix M-d` (force panes), `prefix M-l` (force windows).
 
 ### Wayland user services
 
