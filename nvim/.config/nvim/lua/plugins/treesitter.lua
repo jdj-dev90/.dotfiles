@@ -6,8 +6,19 @@ return {
 		build = ":TSUpdate",
 		config = function()
 			vim.treesitter.language.register("gotmpl", "gotmpl")
+			-- tree-sitter-godot-resource's language name doesn't match the
+			-- "gdresource" filetype nvim's built-in ftdetect assigns to
+			-- .tscn/.tres/.godot files.
+			vim.treesitter.language.register("godot_resource", "gdresource")
 			local ts = require("nvim-treesitter")
-			local languages = { "lua", "typescript", "javascript", "c", "go", "gotmpl", "templ", "markdown", "markdown_inline" }
+			local languages = {
+				"lua", "typescript", "javascript", "c", "go", "gotmpl", "templ", "markdown", "markdown_inline",
+				"gdscript", "gdshader", "godot_resource",
+			}
+			local filetypes = {
+				"lua", "typescript", "javascript", "c", "go", "gotmpl", "templ", "markdown", "markdown_inline",
+				"gdscript", "gdshader", "gdresource",
+			}
 			local ts_bin = vim.fn.exepath("tree-sitter")
 			if ts_bin == "" and vim.uv.fs_stat("/usr/bin/tree-sitter") then
 				vim.env.PATH = "/usr/bin:" .. vim.env.PATH
@@ -26,7 +37,7 @@ return {
 			end
 
 			vim.api.nvim_create_autocmd("FileType", {
-				pattern = languages,
+				pattern = filetypes,
 				callback = function(args)
 					pcall(vim.treesitter.start, args.buf)
 					if vim.bo[args.buf].filetype ~= "yaml" then

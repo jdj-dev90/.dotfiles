@@ -176,6 +176,12 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile", "BufEnter" }, {
 vim.filetype.add({
   extension = {
     tmpl = "gotmpl",
+    -- project.godot, .tscn/.tres are already detected as gdresource by nvim
+    -- core; .import files use the same ini-like format but aren't covered.
+    import = "gdresource",
+  },
+  filename = {
+    ["project.godot"] = "gdresource",
   },
 })
 
