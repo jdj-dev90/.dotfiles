@@ -122,6 +122,9 @@ return {
             single_file_support = true,
             on_attach = function(client)
               client.server_capabilities.semanticTokensProvider = nil
+              -- Leave formatting to prettierd so the repo's prettier config wins
+              client.server_capabilities.documentFormattingProvider = false
+              client.server_capabilities.documentRangeFormattingProvider = false
             end,
           })
           vim.lsp.enable("ts_ls")

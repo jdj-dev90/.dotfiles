@@ -13,7 +13,7 @@ return {
           -- null_ls.builtins.formatting.stylua,
           -- null_ls.builtins.formatting.prettierd,
           null_ls.builtins.formatting.prettierd.with({
-            filetypes = { "html", "javascript", "typescript", "css", "json", "yaml", "markdown", "graphql" },
+            filetypes = { "html", "javascript", "javascriptreact", "typescript", "typescriptreact", "css", "json", "yaml", "markdown", "graphql" },
           }),
           null_ls.builtins.diagnostics.golangci_lint.with({
             filetypes = { "go" },
@@ -21,12 +21,14 @@ return {
           null_ls.builtins.formatting.gofumpt.with({
             filetypes = { "go", "gomod" },
           }),
+          -- terraformls is disabled (hangs on open), so format via the terraform CLI
+          null_ls.builtins.formatting.terraform_fmt,
           -- Note: No effective linting/formatting for Go text/template files that generate JSON
           -- djlint only works well for HTML templates
           -- go-template-lint requires Go source files for context
           -- Manual formatting is the recommended approach for these files
           -- null_ls.builtins.diagnostics.ruff,
-          -- null_ls.builtins.formatting.black,
+          null_ls.builtins.formatting.black,
           -- require("none-ls.diagnostics.eslint_d"),
 
 -- null_ls.builtins.diagnostics.eslint_d.with({
