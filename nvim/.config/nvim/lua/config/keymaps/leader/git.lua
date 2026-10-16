@@ -3,9 +3,9 @@ return {
 	{
 		"<leader>gD",
 		function()
-			vim.api.nvim_cmd({ cmd = "DiffviewOpen", args = { "main" } }, {})
+			vim.api.nvim_cmd({ cmd = "DiffviewOpen", args = { "origin/main...HEAD" } }, {})
 		end,
-		desc = "Diffview Open main",
+		desc = "Diffview branch vs origin/main",
 		nowait = true,
 		remap = false,
 	},

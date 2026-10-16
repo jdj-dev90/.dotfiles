@@ -189,7 +189,8 @@ vim.filetype.add({
 -- inside heredocs. Redefine both regions without recursive containment.
 vim.api.nvim_create_autocmd("Syntax", {
   group = augroup("hcl_fix_heredoc_perf"),
-  pattern = { "hcl", "terraform" },
+  -- terraform's syntax file doesn't define these groups, so only hcl applies
+  pattern = { "hcl" },
   callback = function()
     vim.cmd([[
       syn clear hclStringInterp

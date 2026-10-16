@@ -12,12 +12,16 @@ return {
 			vim.treesitter.language.register("godot_resource", "gdresource")
 			local ts = require("nvim-treesitter")
 			local languages = {
-				"lua", "typescript", "javascript", "c", "go", "gotmpl", "templ", "markdown", "markdown_inline",
+				"lua", "typescript", "tsx", "javascript", "c", "go", "gotmpl", "templ", "markdown", "markdown_inline",
 				"gdscript", "gdshader", "godot_resource",
+				"json", "yaml", "python", "bash", "css", "html", "dockerfile",
+				-- query-only packages: typescript/tsx/javascript highlights inherit from these
+				"ecma", "jsx",
 			}
 			local filetypes = {
-				"lua", "typescript", "javascript", "c", "go", "gotmpl", "templ", "markdown", "markdown_inline",
-				"gdscript", "gdshader", "gdresource",
+				"lua", "typescript", "typescriptreact", "javascript", "javascriptreact", "c", "go", "gotmpl", "templ",
+				"markdown", "markdown_inline", "gdscript", "gdshader", "gdresource",
+				"json", "yaml", "python", "sh", "bash", "css", "html", "dockerfile",
 			}
 			local ts_bin = vim.fn.exepath("tree-sitter")
 			if ts_bin == "" and vim.uv.fs_stat("/usr/bin/tree-sitter") then

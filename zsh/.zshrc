@@ -214,3 +214,12 @@ export PATH="$HOME/.local/bin:$PATH"
 eval "$(/home/jordan/.local/bin/mise activate zsh)"
 eval 
 TEMPO_AC_ZSH_SETUP_PATH=/home/jordan/.cache/tempomat/autocomplete/zsh_setup && test -f $TEMPO_AC_ZSH_SETUP_PATH && source $TEMPO_AC_ZSH_SETUP_PATH; # tempo autocomplete setup
+
+# bun completions
+[ -s "/home/jordan/.bun/_bun" ] && source "/home/jordan/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi

@@ -1,0 +1,38 @@
+# Template for ~/.config/worktrunk/config.toml (the real file is untracked:
+# project ids name work hosts). Copy to config.toml and fill in identifiers
+# from `wt config show` (PROJECT CONFIG -> Identifier). Full commented
+# reference: `wt config create` on a fresh machine.
+
+# ============================================================
+
+[switch.picker]
+pager = "delta --paging=never"
+
+[list]
+columns = ["branch", "status", "working-diff", "ahead-behind", "ci", "path"]
+
+# --- example: self-hosted GitLab repo with .env + submodule ---
+[projects."git.example.com/group/app"]
+forge.platform = "gitlab"
+forge.hostname = "git.example.com"
+
+[[projects."git.example.com/group/app".pre-start]]
+env = "cp {{ primary_worktree_path }}/.env {{ worktree_path }}/.env"
+submodule = "git submodule update --init"
+
+[[projects."git.example.com/group/app".pre-start]]
+deps = "pnpm install --frozen-lockfile"
+
+# --- example: gitlab.com repo cloned via an ssh host alias ---
+[projects."gitlab-alias/group/contracts"]
+forge.platform = "gitlab"
+forge.hostname = "gitlab.com"
+pre-start.deps = "pnpm install --frozen-lockfile"
+
+# `wt new TW-1234` — fetch, branch from latest origin/main, open tmux-sessionizer layout there
+[aliases]
+new = "git fetch -q origin && wt switch --create {{ args[0] }} --base origin/main --no-cd -x tmux-sessionizer -- '{% raw %}{{ worktree_path }}{% endraw %}'"
+
+# Kill the tmux session tmux-sessionizer made for this worktree ("_" + basename, dots -> "_")
+[post-remove]
+tmux = "tmux kill-session -t \"=_$(basename '{{ worktree_path }}' | tr . _)\" 2>/dev/null || true"

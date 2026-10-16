@@ -79,9 +79,7 @@ return {
         ["yamlls"] = function()
           vim.lsp.config('yamlls', {
             cmd = { vim.fn.stdpath("data") .. "/mason/bin/yaml-language-server", "--stdio" },
-            root_dir = function(fname)
-              return vim.fs.root(fname, ".git") or vim.fs.dirname(fname)
-            end,
+            root_markers = { ".git" },
             settings = {
               yaml = {
                 validate = true,
@@ -124,6 +122,9 @@ return {
             single_file_support = true,
             on_attach = function(client)
               client.server_capabilities.semanticTokensProvider = nil
+              -- Leave formatting to prettierd so the repo's prettier config wins
+              client.server_capabilities.documentFormattingProvider = false
+              client.server_capabilities.documentRangeFormattingProvider = false
             end,
           })
           vim.lsp.enable("ts_ls")

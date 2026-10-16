@@ -106,7 +106,7 @@ should_ignore() {
 
 is_project_root() {
   local d="$1"
-  [[ -d "$d/.git" ]] && return 0
+  [[ -e "$d/.git" ]] && return 0  # -e: worktrees have a .git file
   [[ -f "$d/package.json" ]] && return 0
   [[ -f "$d/pyproject.toml" ]] && return 0
   [[ -f "$d/Pipfile" ]] && return 0
@@ -194,7 +194,7 @@ fzf_pick() {
     echo -e "\033[1m$P\033[0m";
     (cd "$P" && '"$LS"' | sed -n "1,80p");
     echo;
-    test -d "$P/.git" && (cd "$P" && echo "[git status]" && git -c color.ui=always status -sb || true)
+    test -e "$P/.git" && (cd "$P" && echo "[git status]" && git -c color.ui=always status -sb || true)
   '
 
   printf '%s\n' "$list" | fzf \
@@ -324,19 +324,15 @@ is_shell_cmd() {
   esac
 }
 
-sql_escape() {
-  local s="$1"
-  printf "%s" "${s//"'"/"''"}"
-}
-
-opencode_session_for_project() {
-  local dir="$1" escaped project_id session_id
-  command -v opencode >/dev/null 2>&1 || return 0
-  escaped="$(sql_escape "$dir")"
-  project_id="$(opencode db --format tsv "SELECT id FROM project WHERE worktree = '$escaped' ORDER BY time_updated DESC LIMIT 1;" 2>/dev/null | awk 'NR==2 {print $1; exit}')"
-  [[ -n "$project_id" ]] || { printf ""; return 0; }
-  session_id="$(opencode db --format tsv "SELECT id FROM session WHERE project_id = '$project_id' ORDER BY time_updated DESC LIMIT 1;" 2>/dev/null | awk 'NR==2 {print $1; exit}')"
-  printf "%s" "${session_id:-}"
+# Claude stores sessions under ~/.claude/projects/<path with non-alnum -> '-'>
+agent_cmd_for_project() {
+  local dir="$1" key
+  key="$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
+  if compgen -G "${HOME}/.claude/projects/${key}/*.jsonl" >/dev/null; then
+    printf 'claude --continue'
+  else
+    printf 'claude'
+  fi
 }
 
 ensure_session_panes() {
@@ -365,12 +361,7 @@ ensure_session_panes() {
   if [[ -n "$right_pane" ]]; then
     cmd="$(pane_command "$right_pane")"
     if is_shell_cmd "$cmd"; then
-      opencode_session_id="$(opencode_session_for_project "$selected")"
-      if [[ -n "$opencode_session_id" ]]; then
-        tmux send-keys -t "$right_pane" "opencode --session $opencode_session_id" C-m
-      else
-        tmux send-keys -t "$right_pane" "opencode \"$selected\"" C-m
-      fi
+      tmux send-keys -t "$right_pane" "$(agent_cmd_for_project "$selected")" C-m
     fi
   fi
 
@@ -403,24 +394,14 @@ ensure_session_windows() {
     fi
   fi
 
-  opencode_state="$(ensure_window "$selected_name" opencode 2 "$selected")"
-  if [[ "$opencode_state" == "created" ]]; then
-    opencode_session_id="$(opencode_session_for_project "$selected")"
-    if [[ -n "$opencode_session_id" ]]; then
-      tmux send-keys -t "$selected_name:opencode.1" "opencode --session $opencode_session_id" C-m
-    else
-      tmux send-keys -t "$selected_name:opencode.1" "opencode \"$selected\"" C-m
-    fi
+  agent_state="$(ensure_window "$selected_name" agent 2 "$selected")"
+  if [[ "$agent_state" == "created" ]]; then
+    tmux send-keys -t "$selected_name:agent.1" "$(agent_cmd_for_project "$selected")" C-m
   else
-    if [[ "$(window_pane_count "$selected_name" opencode)" -eq 1 ]]; then
-      cmd="$(pane_command "$selected_name:opencode.1")"
+    if [[ "$(window_pane_count "$selected_name" agent)" -eq 1 ]]; then
+      cmd="$(pane_command "$selected_name:agent.1")"
       if is_shell_cmd "$cmd"; then
-        opencode_session_id="$(opencode_session_for_project "$selected")"
-        if [[ -n "$opencode_session_id" ]]; then
-          tmux send-keys -t "$selected_name:opencode.1" "opencode --session $opencode_session_id" C-m
-        else
-          tmux send-keys -t "$selected_name:opencode.1" "opencode \"$selected\"" C-m
-        fi
+        tmux send-keys -t "$selected_name:agent.1" "$(agent_cmd_for_project "$selected")" C-m
       fi
     fi
   fi
