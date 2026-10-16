@@ -458,7 +458,7 @@ if [[ -f "$selected/.wt-dash" ]]; then
   dash_name="${selected_name}_dash"
   if ! tmux has-session -t "=$dash_name" 2>/dev/null; then
     # run as the pane command (no send-keys race); drop to a shell if it exits
-    tmux -u new-session -ds "$dash_name" -c "$selected" -n dash "wt-dash; exec \"\${SHELL:-bash}\""
+    tmux -u new-session -ds "$dash_name" -c "$selected" -n dash "PATH=\"\$HOME/.local/bin:\$PATH\" wt-dash; exec \"\${SHELL:-bash}\""
   fi
   if [[ -z "${TMUX:-}" ]]; then
     exec tmux -u attach -t "=$dash_name"

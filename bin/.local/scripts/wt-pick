@@ -6,7 +6,8 @@
 # tmux-sessionizer session; Alt-c creates a worktree (latest origin/main via the
 # worktrunk sync-base hook) and opens it; Alt-x removes.
 set -uo pipefail
-export PATH="${HOME}/.local/scripts:${PATH}"
+# tmux server PATH lacks these: scripts (tmux-sessionizer) and ~/.local/bin (wt-dash)
+export PATH="${HOME}/.local/scripts:${HOME}/.local/bin:${PATH}"
 
 start="${1:-$PWD}"
 cd "$start" 2>/dev/null || { echo "No such dir: $start" >&2; exit 1; }
