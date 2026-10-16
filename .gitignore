@@ -7,3 +7,8 @@ screenshots/
 # The real SSH config names work hosts, internal addresses and client aliases.
 # Track the template instead; copy it to config and add private hosts locally.
 ssh/.ssh/config
+
+# Worktrunk: real config names work hosts/repos; approvals are machine state.
+# Track config.example.toml instead.
+worktrunk/.config/worktrunk/config.toml
+worktrunk/.config/worktrunk/approvals.toml
