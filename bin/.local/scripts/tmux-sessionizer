@@ -34,6 +34,8 @@ ROOTS=(
   "${HOME}/uni"
 )
 DOTFILES_DIR="${HOME}/.dotfiles"
+# TMUX_SESSIONIZER_CLIENT=<client>: switch that tmux client instead of the current one
+# (wt-dash on a second monitor opens sessions on the main screen).
 
 MIN_DEPTH="${MIN_DEPTH:-1}"
 MAX_DEPTH="${MAX_DEPTH:-4}"
@@ -461,7 +463,7 @@ if [[ -f "$selected/.wt-dash" ]]; then
   if [[ -z "${TMUX:-}" ]]; then
     exec tmux -u attach -t "=$dash_name"
   else
-    tmux switch-client -t "=$dash_name"
+    tmux switch-client ${TMUX_SESSIONIZER_CLIENT:+-c "$TMUX_SESSIONIZER_CLIENT"} -t "=$dash_name"
   fi
   exit 0
 fi
@@ -474,7 +476,7 @@ if [[ -n "$existing_target" ]]; then
   if [[ -z "${TMUX:-}" ]]; then
     exec tmux -u attach -t "$existing_session" \; select-window -t "$existing_window" \; select-pane -t "$existing_target"
   else
-    tmux switch-client -t "$existing_session"
+    tmux switch-client ${TMUX_SESSIONIZER_CLIENT:+-c "$TMUX_SESSIONIZER_CLIENT"} -t "$existing_session"
     tmux select-window -t "$existing_window"
     tmux select-pane -t "$existing_target"
   fi
@@ -491,5 +493,5 @@ esac
 if [[ -z "${TMUX:-}" ]]; then
   exec tmux -u attach -t "$selected_name"
 else
-  tmux switch-client -t "$selected_name"
+  tmux switch-client ${TMUX_SESSIONIZER_CLIENT:+-c "$TMUX_SESSIONIZER_CLIENT"} -t "$selected_name"
 fi

@@ -83,7 +83,8 @@ Defined in `wayland/.config/systemd/user/`:
 - TPM-managed plugin stack with Kanagawa themeing.
 - Vim/tmux pane navigation interoperability (`C-h/j/k/l`, `C-\\`).
 - Clipboard copy prefers Wayland (`wl-copy`) and falls back to `xclip`.
-- Custom helpers include `tmux-sessionizer`, `tmux-splitter`, `tmux-windowizer`, `wt-dash` (live Worktrunk dashboard), `wt-pick` (worktree picker popup, prefix+w).
+- Custom helpers include `tmux-sessionizer`, `tmux-splitter`, `tmux-windowizer`, `wt-pick` (worktree picker popup, prefix+w).
+- `wt-dash` (Worktrunk dashboard TUI) lives in its own repo: `GOBIN=~/.local/bin go install github.com/jdj-dev90/wt-dash@latest`. `wt-pick` and the sessionizer's `.wt-dash` dashboard session call it.
 
 ## Git config behavior
 
