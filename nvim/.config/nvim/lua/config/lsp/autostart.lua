@@ -8,9 +8,20 @@ local function start_if_needed(name, bufnr)
 			return
 		end
 	end
-	local id = vim.lsp.start(cfg, { bufnr = bufnr })
-	if id then
-		vim.lsp.buf_attach_client(bufnr, id)
+	local function start(root_dir)
+		local id = vim.lsp.start(vim.tbl_extend("force", cfg, { root_dir = root_dir }), { bufnr = bufnr })
+		if id then
+			vim.lsp.buf_attach_client(bufnr, id)
+		end
+	end
+	-- vim.lsp.start only accepts a string root_dir; resolve function/root_markers
+	-- forms the same way vim.lsp.enable does so its client gets reused.
+	if type(cfg.root_dir) == "function" then
+		cfg.root_dir(bufnr, start)
+	elseif not cfg.root_dir and cfg.root_markers then
+		start(vim.fs.root(bufnr, cfg.root_markers))
+	else
+		start(cfg.root_dir)
 	end
 end
 

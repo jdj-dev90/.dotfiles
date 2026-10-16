@@ -79,9 +79,7 @@ return {
         ["yamlls"] = function()
           vim.lsp.config('yamlls', {
             cmd = { vim.fn.stdpath("data") .. "/mason/bin/yaml-language-server", "--stdio" },
-            root_dir = function(fname)
-              return vim.fs.root(fname, ".git") or vim.fs.dirname(fname)
-            end,
+            root_markers = { ".git" },
             settings = {
               yaml = {
                 validate = true,
