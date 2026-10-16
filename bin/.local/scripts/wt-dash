@@ -8,10 +8,37 @@ set -uo pipefail
 # ============================
 # Config
 # ============================
-# Repos: one path per line (# comments ok). Kept outside dotfiles — paths are machine/client specific.
-REPOS_FILE="${WT_DASH_REPOS_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/wt-dash/repos}"
+# Repos list: one path per line (# comments ok; relative paths resolve from the
+# file's directory). Kept outside dotfiles — paths are machine/client specific.
+# Lookup, first match wins:
+#   1. wt-dash <file|dir>   (dir -> <dir>/.wt-dash)
+#   2. nearest .wt-dash walking up from $PWD   (e.g. one per client dir)
+#   3. ~/.config/wt-dash/repos                 (master fallback)
+find_repos_file() {
+  local arg="${1:-}" d
+  if [[ -n "$arg" ]]; then
+    [[ -d "$arg" ]] && arg="${arg%/}/.wt-dash"
+    printf '%s' "$arg"; return
+  fi
+  d="$PWD"
+  while [[ "$d" != "/" ]]; do
+    [[ -f "$d/.wt-dash" ]] && { printf '%s' "$d/.wt-dash"; return; }
+    d="$(dirname "$d")"
+  done
+  printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/wt-dash/repos"
+}
+
+REPOS_FILE="$(find_repos_file "${1:-}")"
 [[ -f "$REPOS_FILE" ]] || { echo "No repos file: $REPOS_FILE (one repo path per line)" >&2; exit 1; }
-mapfile -t REPOS < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e "s|^~|$HOME|" "$REPOS_FILE" | grep -v '^$')
+REPOS_DIR="$(cd "$(dirname "$REPOS_FILE")" && pwd)"
+REPOS=()
+while IFS= read -r line; do
+  line="${line%%#*}"; line="${line%"${line##*[![:space:]]}"}"
+  [[ -z "$line" ]] && continue
+  line="${line/#\~/$HOME}"
+  [[ "$line" != /* ]] && line="${REPOS_DIR}/${line}"
+  REPOS+=("$line")
+done < "$REPOS_FILE"
 (( ${#REPOS[@]} > 0 )) || { echo "No repos listed in $REPOS_FILE" >&2; exit 1; }
 INTERVAL="${WT_DASH_INTERVAL:-10}"
 NOTIFY="${WT_DASH_NOTIFY:-1}"
