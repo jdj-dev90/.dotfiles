@@ -107,6 +107,7 @@ should_ignore() {
 is_project_root() {
   local d="$1"
   [[ -e "$d/.git" ]] && return 0  # -e: worktrees have a .git file
+  [[ -f "$d/.wt-dash" ]] && return 0  # client dir with a wt-dash repo list
   [[ -f "$d/package.json" ]] && return 0
   [[ -f "$d/pyproject.toml" ]] && return 0
   [[ -f "$d/Pipfile" ]] && return 0
@@ -445,6 +446,23 @@ ensure_wayland_env
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   log "[DRY-RUN] Would search panes and build tmux layout for '$selected_name' @ '$selected'"
+  exit 0
+fi
+
+# Client dir with a .wt-dash list -> a single dashboard session running wt-dash.
+# Matched by session name, not pane path, so other panes in this dir don't hijack it.
+if [[ -f "$selected/.wt-dash" ]]; then
+  require_cmd tmux
+  dash_name="${selected_name}_dash"
+  if ! tmux has-session -t "=$dash_name" 2>/dev/null; then
+    # run as the pane command (no send-keys race); drop to a shell if it exits
+    tmux -u new-session -ds "$dash_name" -c "$selected" -n dash "wt-dash; exec \"\${SHELL:-bash}\""
+  fi
+  if [[ -z "${TMUX:-}" ]]; then
+    exec tmux -u attach -t "=$dash_name"
+  else
+    tmux switch-client -t "=$dash_name"
+  fi
   exit 0
 fi
 

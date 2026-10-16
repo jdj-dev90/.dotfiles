@@ -33,6 +33,6 @@ pre-start.deps = "pnpm install --frozen-lockfile"
 [aliases]
 new = "git fetch -q origin && wt switch --create {{ args[0] }} --base origin/main --no-cd -x tmux-sessionizer -- '{% raw %}{{ worktree_path }}{% endraw %}'"
 
-# Kill the tmux session tmux-sessionizer made for this worktree ("_" + basename, dots -> "_")
+# Kill the tmux session tmux-sessionizer made for this worktree (nerd-font folder icon + "_" + basename, dots -> "_")
 [post-remove]
-tmux = "tmux kill-session -t \"=_$(basename '{{ worktree_path }}' | tr . _)\" 2>/dev/null || true"
+tmux = "tmux kill-session -t \"=_$(basename '{{ worktree_path }}' | tr . _)\" 2>/dev/null || true"
