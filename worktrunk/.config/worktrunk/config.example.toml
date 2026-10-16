@@ -33,6 +33,12 @@ pre-start.deps = "pnpm install --frozen-lockfile"
 [aliases]
 new = "git fetch -q origin && wt switch --create {{ args[0] }} --base origin/main --no-cd -x tmux-sessionizer -- '{% raw %}{{ worktree_path }}{% endraw %}'"
 
+# New branches cut from the default branch start from the latest origin copy,
+# whatever created them (wt new, wt switch -c, picker Alt-c). Runs before
+# project pre-start hooks (global first).
+[pre-start]
+sync-base = "if [ '{{ base }}' = '{{ default_branch }}' ]; then git fetch -q origin '{{ default_branch }}' && git reset -q --hard 'origin/{{ default_branch }}'; fi"
+
 # Kill the tmux session tmux-sessionizer made for this worktree (nerd-font folder icon + "_" + basename, dots -> "_")
 [post-remove]
 tmux = "tmux kill-session -t \"=_$(basename '{{ worktree_path }}' | tr . _)\" 2>/dev/null || true"

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# wt-pick — worktree picker for a tmux popup (bound to prefix+w)
+#
+# Opens `wt switch`'s picker for the repo the pane is in; outside a repo, pick
+# one from the nearest .wt-dash list first. Enter opens/jumps to the worktree's
+# tmux-sessionizer session; Alt-c creates a worktree (latest origin/main via the
+# worktrunk sync-base hook) and opens it; Alt-x removes.
+set -uo pipefail
+export PATH="${HOME}/.local/scripts:${PATH}"
+
+start="${1:-$PWD}"
+cd "$start" 2>/dev/null || { echo "No such dir: $start" >&2; exit 1; }
+
+repo="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo" ]]; then
+  repos="$(wt-dash --list 2>/dev/null)" || { echo "Not in a git repo and no .wt-dash found" >&2; read -rsn1; exit 1; }
+  repo="$(printf '%s\n' "$repos" | fzf --prompt="repo  " --height=100% --layout=reverse --border=rounded \
+    --with-nth=-1 --delimiter=/ --color='fg:#dcd7ba,bg:#1f1f28,hl:#7e9cd8,fg+:#dcd7ba,bg+:#2a2a37,hl+:#7e9cd8,prompt:#957fb8,pointer:#c34043,border:#363646')" || exit 0
+fi
+
+exec wt -C "$repo" switch --no-cd -x "${WT_PICK_OPEN:-tmux-sessionizer}" -- '{{ worktree_path }}'

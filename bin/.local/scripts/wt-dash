@@ -28,6 +28,9 @@ find_repos_file() {
   printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/wt-dash/repos"
 }
 
+LIST_ONLY=0
+[[ "${1:-}" == "--list" ]] && { LIST_ONLY=1; shift; }
+
 REPOS_FILE="$(find_repos_file "${1:-}")"
 [[ -f "$REPOS_FILE" ]] || { echo "No repos file: $REPOS_FILE (one repo path per line)" >&2; exit 1; }
 REPOS_DIR="$(cd "$(dirname "$REPOS_FILE")" && pwd)"
@@ -40,6 +43,7 @@ while IFS= read -r line; do
   REPOS+=("$line")
 done < "$REPOS_FILE"
 (( ${#REPOS[@]} > 0 )) || { echo "No repos listed in $REPOS_FILE" >&2; exit 1; }
+(( LIST_ONLY )) && { printf '%s\n' "${REPOS[@]}"; exit 0; }
 INTERVAL="${WT_DASH_INTERVAL:-10}"
 NOTIFY="${WT_DASH_NOTIFY:-1}"
 

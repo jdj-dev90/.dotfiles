@@ -83,7 +83,7 @@ Defined in `wayland/.config/systemd/user/`:
 - TPM-managed plugin stack with Kanagawa themeing.
 - Vim/tmux pane navigation interoperability (`C-h/j/k/l`, `C-\\`).
 - Clipboard copy prefers Wayland (`wl-copy`) and falls back to `xclip`.
-- Custom helpers include `tmux-sessionizer`, `tmux-splitter`, `tmux-windowizer`, `wt-dash` (live Worktrunk dashboard).
+- Custom helpers include `tmux-sessionizer`, `tmux-splitter`, `tmux-windowizer`, `wt-dash` (live Worktrunk dashboard), `wt-pick` (worktree picker popup, prefix+w).
 
 ## Git config behavior
 
