@@ -1,4 +1,4 @@
-alias ls='exa'
+if command -v eza >/dev/null 2>&1; then alias ls='eza'; elif command -v exa >/dev/null 2>&1; then alias ls='exa'; fi
 alias cl='clear'
 alias v='nvim'
 alias t='tmux -u'
@@ -9,15 +9,14 @@ alias mysql="/usr/lib/mysql-workbench/mysql"
 alias oo='cd $SECOND_BRAIN'
 alias or='nvim $SECOND_BRAIN/inbox/*.md'
 
-# for obsidian-bridge.nvim (not a secret)
-export OBSIDIAN_REST_API_KEY="17d18e709ceda1459d6c40e547783d58d1164259b370dd1bb87f1e62067edca7" # second_brain
-# export OBSIDIAN_REST_API_KEY="f58135f44d8a438101385ec4777d1ed52b97c130e2bd0edff712e934d3b1abbd" # weave
+# Secrets (e.g. OBSIDIAN_REST_API_KEY) live in ~/.zsh_secrets, outside the repo.
+[ -f "$HOME/.zsh_secrets" ] && . "$HOME/.zsh_secrets"
 
 
 export DOTFILES=$HOME/.dotfiles
 export SCRIPTS=$HOME/.dotfiles/bin/.local/scripts
 export STOW_FOLDERS="bin,nvim,tmux,zsh,wayland,ghostty,gitconfig,wallpapers,ssh,worktrunk"
-export EDITOR=/usr/bin/nvim
+export EDITOR=nvim
 
 export PATH="/home/jordan/.scripts:/home/jordan/.local/bin:/home/jordan/.local/scripts:/home/jordan/.krew/bin:/home/jordan/tools/azure-functions-cli:$PATH"
 export FZF_DEFAULT_OPTS='--color=fg:#f8f8f2,bg:#282a36,hl:#7e9cd8 --color=fg+:#f8f8f2,bg+:#44475a,hl+:#7e9cd8 --color=info:#ffb86c,prompt:#50fa7b,pointer:#ff79c6 --color=marker:#ff79c6,spinner:#ffb86c,header:#6272a4'
@@ -25,7 +24,7 @@ export SECOND_BRAIN=$HOME/vaults/second-brain
 
 export OPENSSL_DIR=/etc/ssl
 export OPENSSL_LIB_DIR=/etc/ssl
-. "$HOME/.cargo/env"
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 
 # eval $(keychain --eval --agents gpg)

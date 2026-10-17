@@ -150,7 +150,7 @@ bindkey '^Y' autosuggest-accept
 bindkey -s ^f "tmux-sessionizer\n"
 bindkey -s '^@' 'tmux-splitter\n'
 
-_zsh_defer 'source ~/.zsh_profile'
+_zsh_defer '[[ -f ~/.zsh_profile ]] && source ~/.zsh_profile'
 
 # NVIM app selector
 vv() {
@@ -178,17 +178,17 @@ copyrun() {
 }
 
 # pnpm
-export PNPM_HOME="/home/jordan/.local/share/pnpm"
+export PNPM_HOME="$HOME/.local/share/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
 # The next line updates PATH for the Google Cloud SDK.
-if [ -f '/home/jordan/google-cloud-sdk/path.zsh.inc' ]; then . '/home/jordan/google-cloud-sdk/path.zsh.inc'; fi
+if [ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/google-cloud-sdk/path.zsh.inc"; fi
 
 # The next line enables shell command completion for gcloud.
-_zsh_defer 'if [ -f "/home/jordan/google-cloud-sdk/completion.zsh.inc" ]; then . "/home/jordan/google-cloud-sdk/completion.zsh.inc"; fi'
+_zsh_defer 'if [ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/google-cloud-sdk/completion.zsh.inc"; fi'
 
 # Shell integrations
 _zsh_defer 'eval "$(fzf --zsh)"'
@@ -205,18 +205,19 @@ fi
 
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-_zsh_defer 'eval "$(pyenv init - zsh)"'
+if command -v pyenv >/dev/null 2>&1; then
+  _zsh_defer 'eval "$(pyenv init - zsh)"'
+fi
 
 # opencode
-export PATH=/home/jordan/.opencode/bin:$PATH
+export PATH=$HOME/.opencode/bin:$PATH
 export PATH=/usr/local/go/bin:$PATH
 export PATH="$HOME/.local/bin:$PATH"
-eval "$(/home/jordan/.local/bin/mise activate zsh)"
-eval 
-TEMPO_AC_ZSH_SETUP_PATH=/home/jordan/.cache/tempomat/autocomplete/zsh_setup && test -f $TEMPO_AC_ZSH_SETUP_PATH && source $TEMPO_AC_ZSH_SETUP_PATH; # tempo autocomplete setup
+if command -v mise >/dev/null 2>&1; then eval "$(mise activate zsh)"; fi
+TEMPO_AC_ZSH_SETUP_PATH=$HOME/.cache/tempomat/autocomplete/zsh_setup && test -f $TEMPO_AC_ZSH_SETUP_PATH && source $TEMPO_AC_ZSH_SETUP_PATH; # tempo autocomplete setup
 
 # bun completions
-[ -s "/home/jordan/.bun/_bun" ] && source "/home/jordan/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
