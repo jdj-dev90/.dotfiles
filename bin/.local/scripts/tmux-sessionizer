@@ -350,7 +350,6 @@ ensure_session_panes() {
   ensure_three_panes "$selected_name" work "$selected"
 
   mapfile -t pane_ids < <(pane_ids_by_left "$selected_name" work)
-  left_pane="${pane_ids[0]:-}"
   mid_pane="${pane_ids[1]:-}"
   right_pane="${pane_ids[2]:-}"
 
@@ -366,10 +365,6 @@ ensure_session_panes() {
     if is_shell_cmd "$cmd"; then
       tmux send-keys -t "$right_pane" "$(agent_cmd_for_project "$selected")" C-m
     fi
-  fi
-
-  if [[ -n "$left_pane" ]]; then
-    tmux send-keys -t "$left_pane" C-c
   fi
 
   tmux select-window -t "$selected_name:work" >/dev/null 2>&1 || true
