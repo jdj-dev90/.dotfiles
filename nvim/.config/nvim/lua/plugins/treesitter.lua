@@ -1,8 +1,9 @@
 return {
 	{
-		"neovim-treesitter/nvim-treesitter",
+		"nvim-treesitter/nvim-treesitter",
+		branch = "main",
 		lazy = false,
-		cmd = { "TSUpdate", "TSInstall", "TSUninstall", "TSStatus", "TSRegistryUpdate" },
+		cmd = { "TSUpdate", "TSInstall", "TSUninstall" },
 		build = ":TSUpdate",
 		config = function()
 			vim.treesitter.language.register("gotmpl", "gotmpl")
@@ -15,8 +16,6 @@ return {
 				"lua", "typescript", "tsx", "javascript", "c", "go", "gotmpl", "templ", "markdown", "markdown_inline",
 				"gdscript", "gdshader", "godot_resource",
 				"json", "yaml", "python", "bash", "css", "html", "dockerfile",
-				-- query-only packages: typescript/tsx/javascript highlights inherit from these
-				"ecma", "jsx",
 			}
 			local filetypes = {
 				"lua", "typescript", "typescriptreact", "javascript", "javascriptreact", "c", "go", "gotmpl", "templ",
@@ -51,7 +50,6 @@ return {
 			})
 		end,
 		dependencies = {
-			"neovim-treesitter/treesitter-parser-registry",
 			{
 				"nvim-treesitter/nvim-treesitter-context",
 				config = function()
