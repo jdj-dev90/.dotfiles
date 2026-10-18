@@ -15,7 +15,7 @@ alias or='nvim $SECOND_BRAIN/inbox/*.md'
 
 export DOTFILES=$HOME/.dotfiles
 export SCRIPTS=$HOME/.dotfiles/bin/.local/scripts
-export STOW_FOLDERS="bin,nvim,tmux,zsh,wayland,ghostty,gitconfig,wallpapers,ssh,worktrunk,cli,mutt"
+export STOW_FOLDERS="bin,nvim,tmux,zsh,wayland,ghostty,gitconfig,wallpapers,ssh,worktrunk,cli,mutt,newsboat"
 export EDITOR=nvim
 
 export PATH="/home/jordan/.scripts:/home/jordan/.local/bin:/home/jordan/.local/scripts:/home/jordan/.krew/bin:/home/jordan/tools/azure-functions-cli:$PATH"

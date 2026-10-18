@@ -25,6 +25,7 @@ Current `STOW_FOLDERS` source of truth is in `zsh/.zsh_profile`.
 - `ghostty/.config/ghostty/`: terminal config + Kanagawa theme.
 - `cli/.config/`: Kanagawa themes for terminal tools (bat, btop, lazygit).
 - `mutt/.config/mutt/`: NeoMutt Kanagawa theme + extras (unified notmuch views), sourced from the mutt-wizard-generated `muttrc` (accounts stay out of the repo).
+- `newsboat/.config/newsboat/`: Newsboat config (Kanagawa, vim keys) and tagged tech feed list.
 - `gitconfig/`: base git config and work-identity include templates.
 - `wallpapers/.wallpapers/`: wallpaper assets.
 - `screenshots/`: saved screenshots (data, usually not config).

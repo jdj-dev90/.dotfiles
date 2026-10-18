@@ -1,0 +1,66 @@
+# Newsboat: Kanagawa (256-colour, matching NeoMutt), vim keys, Wayland handlers.
+auto-reload yes
+reload-time 60
+reload-threads 8
+max-items 100
+show-read-feeds yes
+show-read-articles yes
+prepopulate-query-feeds yes
+confirm-mark-feed-read no
+text-width 100
+datetime-format "%d %b"
+feed-sort-order none
+articlelist-title-format "%T  (%u unread / %t)"
+feedlist-title-format "Feeds  (%u unread)"
+feedlist-format "%4i %n %11u  %t %> %T"
+articlelist-format "%4i %f %D  %?T?%-16T  ?%t"
+notify-program "notify-send"
+notify-format "newsboat: %d new articles (%n unread)"
+
+# Open links in the default browser without blocking newsboat.
+browser "setsid -f xdg-open %u >/dev/null 2>&1"
+macro v set browser "setsid -f mpv %u >/dev/null 2>&1" ; open-in-browser ; set browser "setsid -f xdg-open %u >/dev/null 2>&1"
+macro w set browser "lynx %u" ; open-in-browser ; set browser "setsid -f xdg-open %u >/dev/null 2>&1"
+macro c set browser "printf %s %u | wl-copy" ; open-in-browser ; set browser "setsid -f xdg-open %u >/dev/null 2>&1"
+
+bind-key j down
+bind-key k up
+bind-key j next articlelist
+bind-key k prev articlelist
+bind-key J next-feed articlelist
+bind-key K prev-feed articlelist
+bind-key G end
+bind-key g home
+bind-key d pagedown
+bind-key u pageup
+bind-key l open
+bind-key h quit
+bind-key a toggle-article-read
+bind-key n next-unread
+bind-key N prev-unread
+bind-key U show-urls
+bind-key o open-in-browser-and-mark-read
+
+# Kanagawa
+color background         color187 default
+color listnormal         color250 default
+color listnormal_unread  color180 default bold
+color listfocus          color187 color239
+color listfocus_unread   color180 color239 bold
+color info               color180 color236 bold
+color title              color110 color236 bold
+color article            color187 default
+color hint-key           color180 color236 bold
+color hint-keys-delimiter color243 color236
+color hint-separator     color243 color236
+color hint-description   color250 color236
+
+highlight feedlist "^─.*$" color103 default bold
+highlight feedlist ".*0/0.." color238 default
+highlight article "^(Feed|Author):.*$" color103 default
+highlight article "^Title:.*$" color180 default bold
+highlight article "^(Link|Date):.*$" color243 default
+highlight article "https?://[^ ]+" color110 default
+highlight article "\\[[0-9]+\\]" color107 default bold
+highlight article "\\[image [0-9]+\\]" color215 default
+highlight article "^Links:$" color103 default bold
