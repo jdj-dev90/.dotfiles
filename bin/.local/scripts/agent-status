@@ -21,6 +21,25 @@ watching() {
   [ "$(tmux display -p -t "${pane}" '#{session_attached}#{window_active}#{pane_active}' 2>/dev/null)" = 111 ]
 }
 
+# The agent's tmux pane. Hooks usually inherit $TMUX_PANE, but not always
+# (e.g. a sandboxed agent), so fall back to the process tree, then to a pane
+# sitting in the agent's directory (preferring one running claude).
+find_pane() {
+  local cwd="$1" panes p match
+  [ -n "${TMUX_PANE:-}" ] && { echo "${TMUX_PANE}"; return; }
+  panes="$(tmux list-panes -a -F '#{pane_pid} #{pane_id}' 2>/dev/null)" || return 0
+  p=$$
+  while [ "${p:-1}" -gt 1 ]; do
+    match="$(awk -v p="${p}" '$1 == p { print $2; exit }' <<<"${panes}")"
+    [ -n "${match}" ] && { echo "${match}"; return; }
+    p="$(ps -o ppid= -p "${p}" 2>/dev/null | tr -d ' ')"
+  done
+  [ -n "${cwd}" ] || return 0
+  tmux list-panes -a -F '#{pane_current_path}	#{pane_current_command}	#{pane_id}' 2>/dev/null \
+    | awk -F'\t' -v cwd="${cwd}" '$1 == cwd { print ($2 == "claude" ? 0 : 1) "\t" $3 }' \
+    | sort -n | head -n 1 | cut -f2
+}
+
 label() { # project name from cwd, plus tmux session:window if known
   local cwd="$1" pane="$2" where
   where="$(tmux display -p -t "${pane}" '#S:#W' 2>/dev/null || true)"
@@ -28,7 +47,7 @@ label() { # project name from cwd, plus tmux session:window if known
 }
 
 hook() {
-  local state="$1" input id cwd prev file
+  local state="$1" input id cwd prev file pane
   input="$(cat)"
   id="$(jq -r '.session_id // empty' <<<"${input}")"
   [ -n "${id}" ] || return 0
@@ -40,15 +59,17 @@ hook() {
   fi
   cwd="$(jq -r '.cwd // empty' <<<"${input}")"
   prev="$(jq -r '.state // empty' "${file}" 2>/dev/null || true)"
-  jq -n --arg state "${state}" --arg cwd "${cwd}" --arg pane "${TMUX_PANE:-}" \
+  pane="$(jq -r '.pane // empty' "${file}" 2>/dev/null || true)"
+  [ -n "${pane}" ] || pane="$(find_pane "${cwd}")"
+  jq -n --arg state "${state}" --arg cwd "${cwd}" --arg pane "${pane}" \
     --argjson at "$(date +%s)" '{state: $state, cwd: $cwd, pane: $pane, at: $at}' > "${file}.tmp" \
     && mv "${file}.tmp" "${file}"
   [ "${state}" = "${prev}" ] && return 0
   refresh
-  if [ "${state}" != working ] && ! watching "${TMUX_PANE:-}"; then
+  if [ "${state}" != working ] && ! watching "${pane}"; then
     local what="finished" urgency=normal
     [ "${state}" = waiting ] && what="needs you" && urgency=critical
-    notify-send -a claude -u "${urgency}" "Agent ${what}" "$(label "${cwd}" "${TMUX_PANE:-}")"
+    notify-send -a claude -u "${urgency}" "Agent ${what}" "$(label "${cwd}" "${pane}")"
   fi
 }
 
@@ -106,7 +127,8 @@ menu() {
   n="${choice%%.*}"
   [[ "${n}" =~ ^[0-9]+$ ]] || return
   pane="$(jq -r ".[$((n - 1))].pane" <<<"${all}")"
-  [ -n "${pane}" ] || { notify-send -a claude "That agent isn't in tmux"; return; }
+  [ -n "${pane}" ] || pane="$(TMUX_PANE= find_pane "$(jq -r ".[$((n - 1))].cwd" <<<"${all}")")"
+  [ -n "${pane}" ] || { notify-send -a claude "Couldn't find that agent's tmux pane"; return; }
   client="$(tmux list-clients -F '#{client_activity} #{client_name}' 2>/dev/null | sort -rn | head -n 1 | cut -d' ' -f2)"
   tmux switch-client ${client:+-c "${client}"} -t "${pane}" \; select-window -t "${pane}" \; select-pane -t "${pane}"
   hyprctl dispatch focuswindow class:com.mitchellh.ghostty >/dev/null
