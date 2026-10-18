@@ -23,6 +23,7 @@ Current `STOW_FOLDERS` source of truth is in `zsh/.zsh_profile`.
 - `tmux/.tmux.conf`: tmux config, TPM plugins, vim-aware navigation, clipboard behavior.
 - `wayland/.config/`: Hyprland, waybar, wofi, swaync, and user systemd units.
 - `ghostty/.config/ghostty/`: terminal config + Kanagawa theme.
+- `cli/.config/`: Kanagawa themes for terminal tools (bat, btop, lazygit).
 - `gitconfig/`: base git config and work-identity include templates.
 - `wallpapers/.wallpapers/`: wallpaper assets.
 - `screenshots/`: saved screenshots (data, usually not config).

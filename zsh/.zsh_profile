@@ -15,11 +15,11 @@ alias or='nvim $SECOND_BRAIN/inbox/*.md'
 
 export DOTFILES=$HOME/.dotfiles
 export SCRIPTS=$HOME/.dotfiles/bin/.local/scripts
-export STOW_FOLDERS="bin,nvim,tmux,zsh,wayland,ghostty,gitconfig,wallpapers,ssh,worktrunk"
+export STOW_FOLDERS="bin,nvim,tmux,zsh,wayland,ghostty,gitconfig,wallpapers,ssh,worktrunk,cli"
 export EDITOR=nvim
 
 export PATH="/home/jordan/.scripts:/home/jordan/.local/bin:/home/jordan/.local/scripts:/home/jordan/.krew/bin:/home/jordan/tools/azure-functions-cli:$PATH"
-export FZF_DEFAULT_OPTS='--color=fg:#f8f8f2,bg:#282a36,hl:#7e9cd8 --color=fg+:#f8f8f2,bg+:#44475a,hl+:#7e9cd8 --color=info:#ffb86c,prompt:#50fa7b,pointer:#ff79c6 --color=marker:#ff79c6,spinner:#ffb86c,header:#6272a4'
+export FZF_DEFAULT_OPTS='--color=fg:#dcd7ba,bg:#1f1f28,hl:#7e9cd8 --color=fg+:#dcd7ba,bg+:#2d4f67,hl+:#7fb4ca --color=info:#e6c384,prompt:#957fb8,pointer:#ff9e3b --color=marker:#98bb6c,spinner:#e6c384,header:#7aa89f --color=border:#54546d,gutter:#1f1f28'
 export SECOND_BRAIN=$HOME/vaults/second-brain
 
 export OPENSSL_DIR=/etc/ssl

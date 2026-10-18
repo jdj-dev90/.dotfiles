@@ -1,0 +1,14 @@
+# Kanagawa
+gui:
+  theme:
+    activeBorderColor: ["#7e9cd8", bold]
+    inactiveBorderColor: ["#54546d"]
+    searchingActiveBorderColor: ["#ff9e3b", bold]
+    optionsTextColor: ["#7e9cd8"]
+    selectedLineBgColor: ["#2d4f67"]
+    inactiveViewSelectedLineBgColor: ["#363646"]
+    cherryPickedCommitFgColor: ["#7fb4ca"]
+    cherryPickedCommitBgColor: ["#2d4f67"]
+    markedBaseCommitFgColor: ["#e6c384"]
+    unstagedChangesColor: ["#c34043"]
+    defaultFgColor: ["#dcd7ba"]
