@@ -83,6 +83,7 @@ hub() {
 󰸉  Wallpaper
 󰖔  Night light
   Colour picker
+󰊄  Copy text from screen
 󰞅  Emoji
   Clipboard
 󰐥  Power
@@ -101,6 +102,7 @@ EOF
     *Wallpaper) "${scripts}/wallpaper" pick ;;
     *"Night light") "${scripts}/nightlight" toggle ;;
     *"Colour picker") "${scripts}/colourpick" ;;
+    *"Copy text from screen") "${scripts}/ocr" ;;
     *Emoji) emoji ;;
     *Clipboard) cliphist list | pick clipboard | cliphist decode | wl-copy ;;
     *Power) power ;;

@@ -42,6 +42,7 @@ window#waybar {
 #custom-share,
 #mpris,
 #custom-nightlight,
+#custom-updates,
 #custom-power,
 #custom-dock,
 #idle_inhibitor,
@@ -132,6 +133,10 @@ window#waybar {
   color: #ffa066;
 }
 
+#custom-updates {
+  color: #e6c384;
+}
+
 #custom-power {
   color: #c34043;
 }
@@ -172,6 +177,14 @@ window#waybar {
 
 #pulseaudio {
   color: #7fb4ca;
+}
+
+#pulseaudio.mic {
+  color: #98bb6c;
+}
+
+#pulseaudio.mic.source-muted {
+  color: #c34043;
 }
 
 #pulseaudio.muted {

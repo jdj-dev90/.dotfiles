@@ -1,0 +1,28 @@
+#!/bin/sh
+# Battery protection (started by Hyprland exec-once): warn at 15%, critical
+# warning at 8%, suspend at 4%. Each fires once per discharge.
+set -u
+
+bat=/sys/class/power_supply/BAT0
+warned=100
+
+while sleep 60; do
+  [ -r "${bat}/capacity" ] || continue
+  level="$(cat "${bat}/capacity")"
+  if [ "$(cat "${bat}/status")" != Discharging ]; then
+    warned=100
+    continue
+  fi
+  if [ "${level}" -le 4 ]; then
+    notify-send -a battery -u critical "Battery ${level}%" "Suspending now"
+    sleep 5
+    [ "$(cat "${bat}/status")" = Discharging ] && systemctl suspend
+    warned=4
+  elif [ "${level}" -le 8 ] && [ "${warned}" -gt 8 ]; then
+    notify-send -a battery -u critical "Battery ${level}%" "Plug in now: suspending at 4%"
+    warned=8
+  elif [ "${level}" -le 15 ] && [ "${warned}" -gt 15 ]; then
+    notify-send -a battery "Battery low: ${level}%" "Plug in soon"
+    warned=15
+  fi
+done

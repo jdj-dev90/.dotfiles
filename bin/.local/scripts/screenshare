@@ -59,6 +59,7 @@ CAPTURE_KIND = "wlrobs-scpy"
 STATE = Path.home() / ".cache/screenshare.scene"
 LOG = Path.home() / ".cache/screenshare.log"
 ZOOM_STATE = RUNTIME / "screenshare.zoom"  # name of the zoomed scene
+DND_STATE = RUNTIME / "screenshare.dnd"  # set when screenshare turned DND on
 ZOOM = 2
 
 KANAGAWA_BG = 0xFF281F1F  # #1f1f28 as OBS ABGR
@@ -478,6 +479,19 @@ def hide_obs_window():
         time.sleep(0.25)
 
 
+def quiet_notifications(on):
+    """Do-not-disturb while sharing, so popups never land in the shared view.
+    Only undoes DND that screenshare itself turned on."""
+    if on:
+        already = subprocess.run(["swaync-client", "-D"], capture_output=True, text=True).stdout.strip()
+        if already != "true":
+            subprocess.run(["swaync-client", "-dn"], capture_output=True)
+            DND_STATE.touch()
+    elif DND_STATE.exists():
+        subprocess.run(["swaync-client", "-df"], capture_output=True)
+        DND_STATE.unlink()
+
+
 def start():
     notify("Starting share view...")
     if OUTPUT not in monitors():
@@ -496,9 +510,11 @@ def start():
     if not projector_open():
         obs.call("OpenVideoMixProjector", videoMixType="OBS_WEBSOCKET_VIDEO_MIX_TYPE_PROGRAM")
     notify(f"Live view ready on {OUTPUT}: {scene}. Share the {OUTPUT} screen.")
+    quiet_notifications(True)
 
 
 def stop():
+    quiet_notifications(False)
     if obs_running():
         quit_obs()
     restore_obs_defaults()

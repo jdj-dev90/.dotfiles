@@ -6,7 +6,7 @@
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "tray", "custom/power"],
+  "modules-right": ["custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "tray", "custom/power"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -47,6 +47,13 @@
     "interval": 60,
     "signal": 11,
     "on-click": "$HOME/.local/scripts/nightlight toggle"
+  },
+  "custom/updates": {
+    "exec": "$HOME/.local/scripts/updates",
+    "return-type": "json",
+    "interval": 1800,
+    "signal": 12,
+    "on-click": "$HOME/.local/scripts/waybar-popup updates"
   },
   "custom/power": {
     "format": "󰐥",
@@ -115,6 +122,15 @@
     "format": "󰋊 {percentage_used}%",
     "tooltip-format": "{used} / {total} used on {path}",
     "states": { "medium": 60, "warning": 80, "critical": 90 }
+  },
+  "pulseaudio#mic": {
+    "format": "{format_source}",
+    "format-source": "󰍬",
+    "format-source-muted": "󰍭",
+    "tooltip-format": "Mic: {source_desc}\nclick: mute/unmute (also SUPER+M)",
+    "on-click": "swayosd-client --input-volume mute-toggle",
+    "on-scroll-up": "",
+    "on-scroll-down": ""
   },
   "pulseaudio": {
     "format": " {volume}%",

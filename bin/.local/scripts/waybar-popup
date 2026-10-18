@@ -16,8 +16,9 @@ pick() {
 case "${1:-}" in
   bluetooth) title=Bluetooth; cmd="$(pick bluetui bluetoothctl)" ;;
   audio)     title=Audio;     cmd="$(pick wiremix ncpamixer pulsemixer)" ;;
+  updates)   title=Updates;   cmd="$(pick yay pacman)" ;;
   *)
-    echo "usage: waybar-popup bluetooth|audio" >&2
+    echo "usage: waybar-popup bluetooth|audio|updates" >&2
     exit 2
     ;;
 esac
@@ -33,6 +34,13 @@ addr="$(hyprctl clients -j | jq -r --arg c "${class}" '.[] | select(.class == $c
 if [ -n "${addr}" ]; then
   hyprctl dispatch closewindow "address:${addr}" >/dev/null
   exit 0
+fi
+
+# Updates: keep the window open afterwards so the result can be read, then
+# refresh the waybar count.
+if [ "$1" = updates ]; then
+  exec ghostty --class="${class}" --title="${title}" -e sh -c \
+    "${cmd} -Syu; pkill -RTMIN+12 -x waybar; printf '\\nDone. Press Enter to close.'; read -r _"
 fi
 
 # cmd is word-split on purpose: it may carry flags (e.g. ncpamixer --tab=output).

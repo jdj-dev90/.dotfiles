@@ -78,6 +78,11 @@ if command -v hyprctl >/dev/null 2>&1; then
   fi
 fi
 
+# Move audio to the best output for the new setup (waits for dock USB audio).
+if command -v audio-profile >/dev/null 2>&1; then
+  audio-profile >> "${log_file}" 2>&1 &
+fi
+
 # Refresh the waybar dock indicator.
 pkill -RTMIN+8 -x waybar 2>/dev/null || true
 

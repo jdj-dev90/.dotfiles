@@ -1,0 +1,11 @@
+#!/bin/sh
+# Drag a region; the text in it goes to the clipboard (tesseract OCR).
+set -eu
+text="$(hyprshot -m region --raw 2>/dev/null | tesseract stdin stdout -l eng 2>/dev/null)" || exit 0
+text="$(printf '%s' "${text}" | sed -e 's/[[:space:]]*$//')"
+if [ -z "${text}" ]; then
+  notify-send -a ocr "No text found"
+  exit 0
+fi
+printf '%s' "${text}" | wl-copy
+notify-send -a ocr "Text copied" "$(printf '%s' "${text}" | head -c 200)"

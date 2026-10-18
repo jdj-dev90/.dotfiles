@@ -124,6 +124,28 @@ zle -N zle-line-init
 echo -ne '\e[5 q' # Use beam shape cursor on startup.
 preexec() { echo -ne '\e[5 q' ;} # Use beam shape cursor for each new prompt.
 
+# Notify when a command that ran 30s+ finishes while you're looking elsewhere
+# (another app, or another tmux window/pane).
+_long_cmd_preexec() { _long_cmd_start=$EPOCHSECONDS; _long_cmd_name=$1; }
+_long_cmd_precmd() {
+    local exit_code=$? elapsed
+    [[ -n "$_long_cmd_start" ]] || return
+    elapsed=$(( EPOCHSECONDS - _long_cmd_start ))
+    unset _long_cmd_start
+    (( elapsed >= 30 )) || return
+    [[ -n "$WAYLAND_DISPLAY" ]] && (( $+commands[notify-send] )) || return
+    local here=1
+    [[ "$(hyprctl -j activewindow 2>/dev/null | jq -r .class 2>/dev/null)" == com.mitchellh.ghostty ]] || here=0
+    [[ -n "$TMUX" && "$(tmux display -p '#{window_active}#{pane_active}' 2>/dev/null)" != 11 ]] && here=0
+    (( here )) && return
+    local status_text="done" urgency=normal
+    (( exit_code )) && status_text="failed ($exit_code)" urgency=critical
+    notify-send -a terminal -u $urgency "Command $status_text after ${elapsed}s" "${_long_cmd_name[1,120]}"
+}
+zmodload zsh/datetime
+add-zsh-hook preexec _long_cmd_preexec
+add-zsh-hook precmd _long_cmd_precmd
+
 # Use lf to switch directories and bind it to ctrl-o
 lfcd () {
     tmp="$(mktemp -uq)"

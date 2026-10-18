@@ -1,0 +1,14 @@
+#!/bin/sh
+# Pending pacman + AUR updates for waybar (hidden when there are none).
+#   updates status   waybar JSON (checkupdates uses its own db copy, safe to poll)
+set -eu
+
+repo="$(checkupdates 2>/dev/null | wc -l)"
+aur="$(yay -Qua 2>/dev/null | wc -l)"
+total=$((repo + aur))
+
+if [ "${total}" -eq 0 ]; then
+  printf '{"text":"","class":"none"}\n'
+else
+  printf '{"text":"󰏗 %s","class":"pending","tooltip":"%s repo, %s AUR updates\\nclick: update"}\n' "${total}" "${repo}" "${aur}"
+fi
