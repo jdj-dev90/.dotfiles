@@ -29,3 +29,18 @@ set virtual_spool_file = no
 macro index,pager gu "<vfolder-from-query>tag:inbox and tag:unread and not folder:/Junk|Spam|Deleted|Trash/<enter>" "unread, all accounts"
 macro index,pager gI "<vfolder-from-query>tag:inbox and folder:/INBOX$/<enter>" "inbox, all accounts"
 macro index,pager g/ "<vfolder-from-query>" "notmuch search, all accounts"
+
+# More vim motions on top of mutt-wizard's j/k/gg/G/d/u/h/l.
+bind index,pager,browser \Cd half-down
+bind index,pager,browser \Cu half-up
+bind index zz current-middle
+bind index zt current-top
+bind index zb current-bottom
+bind index,pager N search-opposite
+bind index \eN toggle-new
+
+# Ctrl-b: pick a link from the message (urlscan) and open it in the browser.
+macro index,pager \Cb "<pipe-message> urlscan --compact --dedupe<enter>" "open a link with urlscan"
+macro attach,compose \Cb "<pipe-entry> urlscan --compact --dedupe<enter>" "open a link with urlscan"
+# V: open the HTML part of the message in the browser.
+macro index,pager V "<view-attachments><search>html<enter><view-mailcap><exit>" "open HTML part in browser"

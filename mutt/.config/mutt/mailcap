@@ -1,0 +1,7 @@
+# Checked before mutt-wizard's mailcap (see mailcap_path). Entries not listed
+# here fall through to /usr/local/share/mutt-wizard/mailcap.
+
+# Interactive open (attachment menu / open-in-browser macro): real browser.
+text/html; /usr/local/lib/mutt-wizard/openfile %s ; nametemplate=%s.html
+# Inline render in the pager: w3m keeps tables and numbers the links.
+text/html; w3m -I %{charset} -T text/html -dump -cols 100 -o display_link_number=1 -o display_image=0 %s; nametemplate=%s.html; copiousoutput;
