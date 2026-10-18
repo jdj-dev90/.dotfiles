@@ -6,7 +6,7 @@
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["custom/agents", "custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "tray", "custom/power"],
+  "modules-right": ["custom/work", "custom/agents", "custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "tray", "custom/power"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -23,6 +23,13 @@
   "clock": {
     "format": "{:%a %d %b  %H:%M}",
     "tooltip-format": "{:%Y-%m-%d %H:%M:%S}"
+  },
+  "custom/work": {
+    "exec": "$HOME/.local/scripts/workmode status",
+    "return-type": "json",
+    "interval": 60,
+    "signal": 14,
+    "on-click": "$HOME/.local/scripts/workmode toggle"
   },
   "custom/agents": {
     "exec": "$HOME/.local/scripts/agent-status waybar",

@@ -38,6 +38,7 @@ window#waybar {
 }
 
 #clock,
+#custom-work,
 #custom-agents,
 #custom-rec,
 #custom-share,
@@ -111,6 +112,15 @@ window#waybar {
 
 #battery.critical:not(.charging) {
   background: #43242b;
+}
+
+#custom-work {
+  color: #727169;
+}
+
+#custom-work.on {
+  color: #1f1f28;
+  background: #7e9cd8;
 }
 
 #custom-agents {

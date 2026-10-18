@@ -1,0 +1,57 @@
+#!/bin/sh
+# Work mode: Slack (workspace rules place it: 7 docked / 5 undocked), plus a
+# Personal Chromium window on workspace 6 when docked. Off closes Slack and
+# only the browser window work mode itself opened.
+#   workmode toggle|on|off|status
+set -eu
+
+state="${XDG_RUNTIME_DIR:-/tmp}/workmode.window" # address of our Chromium window, or "-"
+refresh() { pkill -RTMIN+14 -x waybar 2>/dev/null || true; }
+docked() { readlink "${HOME}/.config/hypr/monitors.conf" 2>/dev/null | grep -q docked; }
+chromium_windows() { hyprctl -j clients | jq -r '.[] | select(.class == "chromium") | .address' | sort; }
+
+on() {
+  [ -e "${state}" ] && return 0
+  pgrep -x slack >/dev/null || setsid -f slack >/dev/null 2>&1
+  addr=-
+  if docked; then
+    before="$(chromium_windows)"
+    setsid -f chromium --profile-directory=Default --new-window >/dev/null 2>&1
+    for _ in $(seq 40); do
+      # The new window: in the current list but not in the one from before launch.
+      addr="$(chromium_windows | grep -vxF "${before:-none}" | head -n 1 || true)"
+      [ -n "${addr}" ] && break
+      sleep 0.25
+    done
+    if [ -n "${addr}" ]; then
+      hyprctl dispatch movetoworkspacesilent "6,address:${addr}" >/dev/null
+    else
+      addr=-
+    fi
+  fi
+  echo "${addr}" > "${state}"
+  refresh
+}
+
+off() {
+  [ -e "${state}" ] || return 0
+  pkill -x slack 2>/dev/null || true
+  addr="$(cat "${state}")"
+  [ "${addr}" != - ] && hyprctl dispatch closewindow "address:${addr}" >/dev/null 2>&1 || true
+  rm -f "${state}"
+  refresh
+}
+
+case "${1:-status}" in
+  on) on ;;
+  off) off ;;
+  toggle) if [ -e "${state}" ]; then off; else on; fi ;;
+  status)
+    if [ -e "${state}" ]; then
+      printf '{"text":"󰃖 work","class":"on","tooltip":"Work mode on - click to end (closes Slack)"}\n'
+    else
+      printf '{"text":"󰃖","class":"off","tooltip":"Work mode off - click to start"}\n'
+    fi
+    ;;
+  *) echo "usage: workmode toggle|on|off|status" >&2; exit 2 ;;
+esac
