@@ -46,6 +46,7 @@ window#waybar {
 #custom-nightlight,
 #custom-updates,
 #custom-mail,
+#custom-meeting,
 #custom-power,
 #custom-dock,
 #idle_inhibitor,
@@ -160,6 +161,20 @@ window#waybar {
 
 #custom-updates {
   color: #e6c384;
+}
+
+#custom-meeting {
+  color: #7fb4ca;
+}
+
+#custom-meeting.soon {
+  color: #1f1f28;
+  background: #e6c384;
+}
+
+#custom-meeting.now {
+  color: #1f1f28;
+  background: #98bb6c;
 }
 
 #custom-mail {

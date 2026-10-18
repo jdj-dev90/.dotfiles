@@ -6,7 +6,7 @@
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["custom/work", "custom/agents", "custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "custom/mail", "tray", "custom/power"],
+  "modules-right": ["custom/meeting", "custom/work", "custom/agents", "custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "custom/mail", "tray", "custom/power"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -23,6 +23,14 @@
   "clock": {
     "format": "{:%a %d %b  %H:%M}",
     "tooltip-format": "{:%Y-%m-%d %H:%M:%S}"
+  },
+  "custom/meeting": {
+    "exec": "$HOME/.local/scripts/meetings waybar",
+    "return-type": "json",
+    "interval": 30,
+    "signal": 16,
+    "on-click": "$HOME/.local/scripts/meetings join",
+    "on-click-right": "$HOME/.local/scripts/meetings menu"
   },
   "custom/work": {
     "exec": "$HOME/.local/scripts/workmode status",

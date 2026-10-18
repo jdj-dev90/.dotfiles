@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+"""Upcoming Meet/Zoom meetings from work calendars, and one-key joining.
+
+    meetings refresh     rebuild the cache (feeds + mail invites)
+    meetings waybar      waybar JSON for the next meeting; fires the 5-min warning
+    meetings join        open the current/next meeting's link
+    meetings menu        wofi list of today's and tomorrow's meetings
+    meetings list        print upcoming meetings
+
+Sources (see SOURCES):
+  feed    a Google Calendar "Secret address in iCal format", kept in pass
+  invites calendar invites (text/calendar parts) in a synced maildir, for
+          workspaces whose admin disables secret addresses
+
+Links open in the Chromium profile signed in to that calendar's account,
+so Meet joins as the right user.
+"""
+
+import email
+import email.policy
+import fcntl
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+import icalendar
+import recurring_ical_events
+
+HOME = Path.home()
+SOURCES = {
+    "tw": {
+        "label": "T&W",
+        "feed": "calendar/templeandwebster",
+        "profile": "Profile 5",
+        "me": ["jordan.james@templeandwebster.com.au"],
+    },
+    "cd": {
+        "label": "Convert",
+        "invites": HOME / ".local/share/mail/jordan.james@convertdigital.com.au",
+        "profile": "Profile 2",
+        "me": ["jordan.james@convertdigital.com.au"],
+    },
+    "personal": {
+        "label": "Personal",
+        "feed": "calendar/personal",  # optional; skipped when not in pass
+        "profile": "Default",
+        "me": ["jdj.dev90@gmail.com"],
+    },
+}
+
+CACHE = HOME / ".cache/meetings"
+EVENTS = CACHE / "events.json"
+STALE = 300  # seconds before waybar triggers a background refresh
+WARN = 5 * 60  # warning this long before a meeting starts
+JOIN_EARLY = 15 * 60  # `join` picks a meeting starting within this window
+LINK = re.compile(
+    r"https://(?:meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}"
+    r"|[\w.-]*zoom\.us/(?:j|my|w)/[^\s\"'<>\\]+"
+    r"|teams\.microsoft\.com/l/meetup-join/[^\s\"'<>\\]+)"
+)
+
+
+def pass_show(name):
+    r = subprocess.run(["pass", "show", name], capture_output=True, text=True)
+    return r.stdout.splitlines()[0].strip() if r.returncode == 0 and r.stdout else None
+
+
+def feed_calendar(key, src):
+    url = pass_show(src["feed"])
+    if not url:
+        return None
+    path = CACHE / f"{key}.ics"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            path.write_bytes(resp.read())
+    except OSError as e:
+        print(f"{key}: fetch failed ({e}); using cached copy", file=sys.stderr)
+    return icalendar.Calendar.from_ical(path.read_bytes()) if path.exists() else None
+
+
+def invite_parts(path):
+    """(method, ical bytes) for each text/calendar part of one message."""
+    try:
+        msg = email.message_from_bytes(path.read_bytes(), policy=email.policy.compat32)
+    except OSError:
+        return []
+    out = []
+    for part in msg.walk():
+        if part.get_content_type() == "text/calendar":
+            data = part.get_payload(decode=True)
+            if data:
+                out.append(data.decode(part.get_content_charset() or "utf-8", "replace"))
+    return out
+
+
+def invites_calendar(key, src):
+    """Fold every invite in the maildir into one calendar.
+
+    Per (UID, RECURRENCE-ID) the highest SEQUENCE/DTSTAMP wins; a CANCEL
+    for the series drops the UID, for one instance it cancels that instance.
+    Parsed parts are cached per message so later runs only read new mail.
+    """
+    seen_path = CACHE / f"{key}.invites.json"
+    seen = json.loads(seen_path.read_text()) if seen_path.exists() else {}
+    current = {}
+    for box in src["invites"].glob("*"):
+        for sub in ("cur", "new"):
+            d = box / sub
+            if not d.is_dir():
+                continue
+            for f in d.iterdir():
+                base = f.name.split(":")[0]  # maildir flags change the suffix
+                current[base] = seen[base] if base in seen else invite_parts(f)
+    seen_path.write_text(json.dumps(current))
+
+    best, tzs = {}, {}
+    for parts in current.values():
+        for text in parts:
+            try:
+                cal = icalendar.Calendar.from_ical(text)
+            except ValueError:
+                continue
+            method = str(cal.get("METHOD", "REQUEST")).upper()
+            if method not in ("REQUEST", "CANCEL", "PUBLISH"):
+                continue
+            for tz in cal.walk("VTIMEZONE"):
+                tzs[str(tz.get("TZID"))] = tz
+            for ev in cal.walk("VEVENT"):
+                rid = ev.get("RECURRENCE-ID")
+                k = (str(ev.get("UID")), rid.to_ical().decode() if rid else "")
+                stamp = ev.get("DTSTAMP")
+                rank = (int(ev.get("SEQUENCE", 0)), stamp.dt.isoformat() if stamp else "")
+                if k not in best or rank >= best[k][0]:
+                    best[k] = (rank, method, ev)
+
+    cancelled = {uid for (uid, rid), (_, m, _) in best.items() if m == "CANCEL" and not rid}
+    cal = icalendar.Calendar()
+    cal.add("PRODID", "-//meetings//invites//EN")
+    cal.add("VERSION", "2.0")
+    for tz in tzs.values():
+        cal.add_component(tz)
+    for (uid, rid), (_, method, ev) in best.items():
+        if uid in cancelled:
+            continue
+        if method == "CANCEL":
+            ev["STATUS"] = "CANCELLED"
+        cal.add_component(ev)
+    return cal
+
+
+def declined(ev, me):
+    attendees = ev.get("ATTENDEE", [])
+    if not isinstance(attendees, list):
+        attendees = [attendees]
+    for a in attendees:
+        if str(a).lower().removeprefix("mailto:") in me:
+            return str(a.params.get("PARTSTAT", "")).upper() == "DECLINED"
+    return False
+
+
+def link_of(ev):
+    fields = [ev.get(p) for p in ("X-GOOGLE-CONFERENCE", "CONFERENCE", "LOCATION", "URL", "DESCRIPTION")]
+    for value in fields:
+        m = LINK.search(str(value or ""))
+        if m:
+            return m.group(0).rstrip(".,);")
+    return None
+
+
+def as_utc(value):
+    if isinstance(value, datetime):
+        return (value if value.tzinfo else value.astimezone()).astimezone(timezone.utc)
+    return None  # all-day events are not meetings
+
+
+def refresh():
+    CACHE.mkdir(parents=True, exist_ok=True)
+    with open(CACHE / ".lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return  # another refresh is running
+        now = datetime.now(timezone.utc)
+        window = (now - timedelta(hours=12), now + timedelta(days=7))
+        events = []
+        for key, src in SOURCES.items():
+            if "feed" in src:
+                cal = feed_calendar(key, src)
+            elif src["invites"].is_dir():
+                cal = invites_calendar(key, src)
+            else:
+                cal = None
+            if cal is None:
+                continue
+            me = [m.lower() for m in src["me"]]
+            for ev in recurring_ical_events.of(cal).between(*window):
+                start, end = as_utc(ev.get("DTSTART").dt), as_utc(ev.get("DTEND").dt if ev.get("DTEND") else None)
+                if not start or str(ev.get("STATUS", "")).upper() == "CANCELLED" or declined(ev, me):
+                    continue
+                link = link_of(ev)
+                if not link:
+                    continue
+                events.append({
+                    "id": f"{key}:{ev.get('UID')}:{start.isoformat()}",
+                    "source": key,
+                    "title": str(ev.get("SUMMARY", "(no title)")),
+                    "start": start.timestamp(),
+                    "end": (end or start + timedelta(minutes=30)).timestamp(),
+                    "link": link,
+                })
+        # The same meeting can come from two sources; keep the first per link+start.
+        unique = {}
+        for e in sorted(events, key=lambda e: e["start"]):
+            unique.setdefault((e["link"], e["start"]), e)
+        tmp = EVENTS.with_suffix(".tmp")
+        tmp.write_text(json.dumps(list(unique.values())))
+        tmp.replace(EVENTS)
+
+
+def load():
+    try:
+        return json.loads(EVENTS.read_text())
+    except (OSError, ValueError):
+        return []
+
+
+def refresh_in_background():
+    try:
+        age = time.time() - EVENTS.stat().st_mtime
+    except OSError:
+        age = STALE + 1
+    if age > STALE:
+        subprocess.Popen([sys.argv[0], "refresh"], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def hhmm(ts):
+    return datetime.fromtimestamp(ts).strftime("%H:%M")
+
+
+def day_label(ts):
+    d = datetime.fromtimestamp(ts).date()
+    return "today" if d == date.today() else "tomorrow" if d == date.today() + timedelta(days=1) else d.strftime("%a %d %b")
+
+
+def open_link(e):
+    profile = SOURCES.get(e["source"], {}).get("profile")
+    cmd = ["chromium", f"--profile-directory={profile}", e["link"]] if profile else ["xdg-open", e["link"]]
+    subprocess.Popen(cmd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def warn(e):
+    """Notify once per meeting; the Join action opens it."""
+    sent = CACHE / "warned"
+    ids = set(sent.read_text().split("\n")) if sent.exists() else set()
+    if e["id"] in ids:
+        return
+    sent.write_text("\n".join(list(ids)[-200:] + [e["id"]]))
+    label = SOURCES[e["source"]]["label"]
+    script = (
+        f'a=$(notify-send -a meetings -u critical -A join=Join '
+        f'"{label}: starts {hhmm(e["start"])}" {json.dumps(e["title"])}); '
+        f'[ "$a" = join ] && {json.dumps(sys.argv[0])} open {json.dumps(e["id"])}'
+    )
+    subprocess.Popen(["sh", "-c", script], start_new_session=True)
+
+
+def upcoming(events, now):
+    return [e for e in events if e["end"] > now]
+
+
+def waybar():
+    refresh_in_background()
+    now = time.time()
+    events = upcoming(load(), now)
+    today = [e for e in events if datetime.fromtimestamp(e["start"]).date() == date.today()]
+    if not events or events[0]["start"] - now > 12 * 3600:
+        print(json.dumps({"text": "", "class": "none", "tooltip": "No meetings in the next 12h"}, ensure_ascii=False))
+        return
+    e = events[0]
+    mins = int((e["start"] - now) // 60)
+    if e["start"] <= now:
+        cls, when = "now", "now"
+    elif mins < 60:
+        cls, when = ("soon" if mins < WARN // 60 + 1 else "later"), f"in {mins}m"
+    else:
+        cls, when = "later", hhmm(e["start"])
+    if 0 < e["start"] - now <= WARN:
+        warn(e)
+    title = e["title"] if len(e["title"]) <= 28 else e["title"][:27] + "…"
+    tip = "\n".join(f"{hhmm(x['start'])}  {SOURCES[x['source']]['label']:<8} {x['title']}" for x in (today or events[:5]))
+    print(json.dumps({"text": f"󰤙 {when} {title}", "class": cls,
+                      "tooltip": f"{tip}\n\nclick: join  ·  right-click: all meetings"}, ensure_ascii=False))
+
+
+def join():
+    now = time.time()
+    live = [e for e in upcoming(load(), now) if e["start"] - now <= JOIN_EARLY]
+    if len(live) == 1:
+        open_link(live[0])
+    else:
+        menu()  # none or several overlapping: let the user pick
+
+
+def menu():
+    now = time.time()
+    horizon = datetime.combine(date.today() + timedelta(days=2), datetime.min.time()).timestamp()
+    events = [e for e in upcoming(load(), now) if e["start"] < horizon]
+    if not events:
+        subprocess.run(["notify-send", "-a", "meetings", "No meetings with a join link today or tomorrow"])
+        return
+    rows = [f"{i + 1}. {day_label(e['start'])} {hhmm(e['start'])}  [{SOURCES[e['source']]['label']}]  {e['title']}"
+            for i, e in enumerate(events)]
+    r = subprocess.run(["wofi", "--dmenu", "--insensitive", "--prompt", "join meeting"],
+                       input="\n".join(rows), capture_output=True, text=True)
+    n = r.stdout.split(".", 1)[0]
+    if r.returncode == 0 and n.isdigit() and 0 < int(n) <= len(events):
+        open_link(events[int(n) - 1])
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "list"
+    if cmd == "refresh":
+        refresh()
+    elif cmd == "waybar":
+        waybar()
+    elif cmd == "join":
+        join()
+    elif cmd == "menu":
+        menu()
+    elif cmd == "open" and len(argv) > 2:
+        for e in load():
+            if e["id"] == argv[2]:
+                open_link(e)
+    elif cmd == "list":
+        for e in upcoming(load(), time.time()):
+            print(f"{day_label(e['start']):9} {hhmm(e['start'])}  {SOURCES[e['source']]['label']:<8} {e['title']}  {e['link']}")
+    else:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
