@@ -29,6 +29,7 @@ Current `STOW_FOLDERS` source of truth is in `zsh/.zsh_profile`.
 - `gitconfig/`: base git config and work-identity include templates.
 - `wallpapers/.wallpapers/`: wallpaper assets.
 - `screenshots/`: saved screenshots (data, usually not config).
+- `docs/agents/`, `CLAUDE.md`, `.gitlab-ci.yml`: dev-harness metadata (issue tracker, labels, CI). Not Stow packages.
 - `firas.zahabi/`: personal media files (not runtime dotfiles).
 
 ## Session model (Hyprland only)

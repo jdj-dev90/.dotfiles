@@ -1,0 +1,15 @@
+# Checks for merge requests. Shell scripts at error severity for now; raise to
+# warning once the existing warnings are fixed.
+stages: [check]
+
+shellcheck:
+  stage: check
+  image: koalaman/shellcheck-alpine:stable
+  script:
+    - grep -lE '^#!(/bin/sh|/bin/bash|/usr/bin/env (ba)?sh)' bin/.local/scripts/* | xargs shellcheck -S error
+
+python:
+  stage: check
+  image: python:3-alpine
+  script:
+    - grep -lE '^#!/usr/bin/env python3' bin/.local/scripts/* | xargs -n1 python3 -m py_compile
