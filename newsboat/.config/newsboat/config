@@ -55,8 +55,8 @@ color hint-keys-delimiter color243 color236
 color hint-separator     color243 color236
 color hint-description   color250 color236
 
-highlight feedlist "─── .* ───" color103 default bold
 highlight feedlist ".*0/0.." color238 default
+highlight feedlist "─── .* ───" color103 default bold
 highlight article "^(Feed|Author):.*$" color103 default
 highlight article "^Title:.*$" color180 default bold
 highlight article "^(Link|Date):.*$" color243 default
