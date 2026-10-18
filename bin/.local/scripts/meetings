@@ -6,11 +6,13 @@
     meetings join        open the current/next meeting's link
     meetings menu        wofi list of today's and tomorrow's meetings
     meetings list        print upcoming meetings
+    meetings hide        pick a meeting series to stop showing (e.g. stale invites)
 
 Sources (see SOURCES):
   feed    a Google Calendar "Secret address in iCal format", kept in pass
   invites calendar invites (text/calendar parts) in a synced maildir, for
-          workspaces whose admin disables secret addresses
+          workspaces whose admin disables secret addresses. Invites can't see a
+          series vanish without a cancellation, hence `meetings hide`.
 
 Links open in the Chromium profile signed in to that calendar's account,
 so Meet joins as the right user.
@@ -56,6 +58,7 @@ SOURCES = {
 
 CACHE = HOME / ".cache/meetings"
 EVENTS = CACHE / "events.json"
+HIDDEN = HOME / ".local/state/meetings/hidden"  # "source:UID  # title" per line
 STALE = 300  # seconds before waybar triggers a background refresh
 WARN = 5 * 60  # warning this long before a meeting starts
 JOIN_EARLY = 15 * 60  # `join` picks a meeting starting within this window
@@ -179,6 +182,13 @@ def as_utc(value):
     return None  # all-day events are not meetings
 
 
+def hidden():
+    try:
+        return {line.split("#")[0].strip() for line in HIDDEN.read_text().splitlines()} - {""}
+    except OSError:
+        return set()
+
+
 def refresh():
     CACHE.mkdir(parents=True, exist_ok=True)
     with open(CACHE / ".lock", "w") as lock:
@@ -188,7 +198,7 @@ def refresh():
             return  # another refresh is running
         now = datetime.now(timezone.utc)
         window = (now - timedelta(hours=12), now + timedelta(days=7))
-        events = []
+        events, skip = [], hidden()
         for key, src in SOURCES.items():
             if "feed" in src:
                 cal = feed_calendar(key, src)
@@ -201,6 +211,8 @@ def refresh():
             me = [m.lower() for m in src["me"]]
             for ev in recurring_ical_events.of(cal).between(*window):
                 start, end = as_utc(ev.get("DTSTART").dt), as_utc(ev.get("DTEND").dt if ev.get("DTEND") else None)
+                if f"{key}:{ev.get('UID')}" in skip:
+                    continue
                 if not start or str(ev.get("STATUS", "")).upper() == "CANCELLED" or declined(ev, me):
                     continue
                 link = link_of(ev)
@@ -209,6 +221,7 @@ def refresh():
                 events.append({
                     "id": f"{key}:{ev.get('UID')}:{start.isoformat()}",
                     "source": key,
+                    "series": f"{key}:{ev.get('UID')}",
                     "title": str(ev.get("SUMMARY", "(no title)")),
                     "start": start.timestamp(),
                     "end": (end or start + timedelta(minutes=30)).timestamp(),
@@ -324,6 +337,26 @@ def menu():
         open_link(events[int(n) - 1])
 
 
+def hide():
+    """Pick an upcoming series and add it to the hidden list."""
+    series = {}
+    for e in upcoming(load(), time.time()):
+        series.setdefault(e["series"], e)
+    rows = [f"{i + 1}. {day_label(e['start'])} {hhmm(e['start'])}  [{SOURCES[e['source']]['label']}]  {e['title']}"
+            for i, e in enumerate(series.values())]
+    r = subprocess.run(["wofi", "--dmenu", "--insensitive", "--prompt", "hide series"],
+                       input="\n".join(rows), capture_output=True, text=True)
+    n = r.stdout.split(".", 1)[0]
+    if r.returncode != 0 or not n.isdigit() or not 0 < int(n) <= len(series):
+        return
+    key, e = list(series.items())[int(n) - 1]
+    HIDDEN.parent.mkdir(parents=True, exist_ok=True)
+    with HIDDEN.open("a") as f:
+        f.write(f"{key}  # {e['title']}\n")
+    refresh()
+    subprocess.run(["notify-send", "-a", "meetings", "Hidden", e["title"]])
+
+
 def main(argv):
     cmd = argv[1] if len(argv) > 1 else "list"
     if cmd == "refresh":
@@ -334,6 +367,8 @@ def main(argv):
         join()
     elif cmd == "menu":
         menu()
+    elif cmd == "hide":
+        hide()
     elif cmd == "open" and len(argv) > 2:
         for e in load():
             if e["id"] == argv[2]:
