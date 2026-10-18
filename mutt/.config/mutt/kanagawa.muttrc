@@ -1,70 +1,76 @@
 # vim: filetype=neomuttrc
-# Kanagawa (wave) for NeoMutt. Needs a truecolor terminal.
-set color_directcolor = yes
+# Kanagawa (wave) for NeoMutt, as nearest 256-colour values so it works
+# inside tmux (hex needs a terminal that reports truecolor).
 
-color normal      "#dcd7ba" default
-color error       "#e82424" default
-color warning     "#ff9e3b" default
-color message     "#7e9cd8" default
-color prompt      "#e6c384" default
-color status      "#c8c093" "#2a2a37"
-color indicator   "#dcd7ba" "#2d4f67"
-color tree        "#957fb8" default
-color tilde       "#363646" default
-color markers     "#727169" default
-color search      "#1f1f28" "#e6c384"
+color normal      color187 default
+color error       color160 default
+color warning     color215 default
+color message     color110 default
+color prompt      color180 default
+color status      color180 color236
+color indicator   color187 color239
+color tree        color103 default
+color tilde       color237 default
+color markers     color242 default
+color search      color235 color180
 
 # Index: dim by default, bright for new, colour for flags.
-color index          "#c8c093" default "~A"
-color index_number   "#727169" default
-color index_date     "#7fb4ca" default
-color index_author   "#957fb8" default "~A"
-color index_subject  "#dcd7ba" default "~A"
-color index_size     "#727169" default
-color index_flags    "#ffa066" default "~A"
-color index          "#e6c384" default "~N"
-color index_author   "#e6c384" default "~N"
-color index_subject  "#e6c384" default "~N"
-color index          "#98bb6c" default "~F"
-color index_author   "#98bb6c" default "~F"
-color index_subject  "#98bb6c" default "~F"
-color index          "#e46876" default "~D"
-color index_author   "#e46876" default "~D"
-color index_subject  "#e46876" default "~D"
-color index          "#1f1f28" "#7e9cd8" "~T"
-color index_author   "#1f1f28" "#7e9cd8" "~T"
-color index_subject  "#1f1f28" "#7e9cd8" "~T"
+color index          color180 default "~A"
+color index_number   color242 default
+color index_date     color110 default
+color index_author   color103 default "~A"
+color index_subject  color187 default "~A"
+color index_size     color242 default
+color index_flags    color215 default "~A"
+color index          color180 default "~N"
+color index_author   color180 default "~N"
+color index_subject  color180 default "~N"
+color index          color107 default "~F"
+color index_author   color107 default "~F"
+color index_subject  color107 default "~F"
+color index          color168 default "~D"
+color index_author   color168 default "~D"
+color index_subject  color168 default "~D"
+color index          color235 color110 "~T"
+color index_author   color235 color110 "~T"
+color index_subject  color235 color110 "~T"
+
+# Account labels in unified notmuch views (see extra.muttrc)
+color index_tag color110 default "acct-personal"
+color index_tag color107 default "acct-convert"
+color index_tag color103 default "acct-hotmail"
+color index_tag color180 default "acct-gumby"
 
 # Sidebar
-color sidebar_divider   "#363646" default
-color sidebar_ordinary  "#c8c093" default
-color sidebar_highlight "#dcd7ba" "#2d4f67"
-color sidebar_indicator "#1f1f28" "#7e9cd8"
-color sidebar_new       "#e6c384" default
-color sidebar_unread    "#e6c384" default
-color sidebar_flagged   "#98bb6c" default
+color sidebar_divider   color237 default
+color sidebar_ordinary  color180 default
+color sidebar_highlight color187 color239
+color sidebar_indicator color235 color110
+color sidebar_new       color180 default
+color sidebar_unread    color180 default
+color sidebar_flagged   color107 default
 
 # Pager
-color hdrdefault  "#727169" default
-color header      "#957fb8" default "^From:"
-color header      "#7e9cd8" default "^(To|Cc|Bcc):"
-color header      "#e6c384" default "^Subject:"
-color header      "#7fb4ca" default "^Date:"
-color quoted      "#7fb4ca" default
-color quoted1     "#957fb8" default
-color quoted2     "#98bb6c" default
-color quoted3     "#c0a36e" default
-color signature   "#727169" default
-color attachment  "#ffa066" default
-color bold        "#dcd7ba" default
-color underline   "#7e9cd8" default
-color body        "#7fb4ca" default "(https?|ftp)://[^ \t\n>\"]+"
-color body        "#957fb8" default "[-a-z_0-9.%$+]+@[-a-z_0-9.]+\\.[a-z]+"
-color body        "#98bb6c" default "^gpg: Good signature.*"
-color body        "#e82424" default "^gpg: BAD signature.*"
+color hdrdefault  color242 default
+color header      color103 default "^From:"
+color header      color110 default "^(To|Cc|Bcc):"
+color header      color180 default "^Subject:"
+color header      color110 default "^Date:"
+color quoted      color110 default
+color quoted1     color103 default
+color quoted2     color107 default
+color quoted3     color143 default
+color signature   color242 default
+color attachment  color215 default
+color bold        color187 default
+color underline   color110 default
+color body        color110 default "(https?|ftp)://[^ \t\n>\"]+"
+color body        color103 default "[-a-z_0-9.%$+]+@[-a-z_0-9.]+\\.[a-z]+"
+color body        color107 default "^gpg: Good signature.*"
+color body        color160 default "^gpg: BAD signature.*"
 
 # Compose
-color compose header             "#727169" default
-color compose security_encrypt   "#98bb6c" default
-color compose security_sign      "#7e9cd8" default
-color compose security_none      "#727169" default
+color compose header             color242 default
+color compose security_encrypt   color107 default
+color compose security_sign      color110 default
+color compose security_none      color242 default

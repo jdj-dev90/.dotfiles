@@ -1,7 +1,14 @@
 # vim: filetype=neomuttrc
 # Additions on top of mutt-wizard. Sourced last from ~/.config/mutt/muttrc.
 
-set index_format = "%4C %Z %{%d %b %H:%M}  %-20.20F  %s %> %?X?󰏢 ?%c"
+# %@acct@ labels the account a message lives in (notmuch acct-* tags, set by
+# notmuch-tag-accounts). Plain maildir folders have no tags, so it is blank.
+index-format-hook acct "~Y acct-personal" "personal "
+index-format-hook acct "~Y acct-convert"  "convert  "
+index-format-hook acct "~Y acct-hotmail"  "hotmail  "
+index-format-hook acct "~Y acct-gumby"    "gumby    "
+index-format-hook acct "~A" ""
+set index_format = "%4C %Z %{%d %b %H:%M}  %@acct@%-20.20F  %s %> %?X?󰏢 ?%c"
 set date_format = "%a %d %b %Y %H:%M"
 set sidebar_width = 28
 set sidebar_format = "%D%?F? 󰈻%F?%* %?N?%N/?%S"
@@ -19,6 +26,6 @@ set nm_query_window_duration = 0
 set virtual_spool_file = no
 
 # gu: unread everywhere, gI: every inbox, g/: notmuch search (gi/ga/gs are mutt-wizard's)
-macro index,pager gu "<vfolder-from-query>tag:inbox and tag:unread and not folder:/Junk|Spam/<enter>" "unread, all accounts"
+macro index,pager gu "<vfolder-from-query>tag:inbox and tag:unread and not folder:/Junk|Spam|Deleted|Trash/<enter>" "unread, all accounts"
 macro index,pager gI "<vfolder-from-query>tag:inbox and folder:/INBOX$/<enter>" "inbox, all accounts"
 macro index,pager g/ "<vfolder-from-query>" "notmuch search, all accounts"

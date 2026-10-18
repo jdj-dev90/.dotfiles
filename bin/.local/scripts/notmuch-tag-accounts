@@ -1,0 +1,18 @@
+#!/bin/sh
+# notmuch post-new hook: tag each message with its account (the maildir it
+# lives in), so unified NeoMutt views can show where a message came from.
+# Linked as ~/.local/share/mail/.notmuch/hooks/post-new.
+set -eu
+
+maildir="${HOME}/.local/share/mail"
+for dir in "${maildir}"/*@*/; do
+  account="$(basename "${dir}")"
+  case "${account}" in
+    jdj.dev90@gmail.com) tag=personal ;;
+    jordan.james@convertdigital.com.au) tag=convert ;;
+    jgeltchrobb@hotmail.com) tag=hotmail ;;
+    gumby_sham@hotmail.com) tag=gumby ;;
+    *) tag="${account%%@*}" ;;
+  esac
+  notmuch tag "+acct-${tag}" -- "path:\"${account}/**\" and not tag:acct-${tag}"
+done
