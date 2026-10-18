@@ -28,6 +28,11 @@ step() {
   # Manual change while dimmed: drop the saved level so resume won't undo it.
   rm -f "${state}"
   set_brightness "${target}"
+  # swayosd can't write the backlight itself, so just show the new level.
+  if command -v swayosd-client >/dev/null 2>&1; then
+    swayosd-client --custom-icon display-brightness-symbolic \
+      --custom-progress "$(awk -v t="${target}" -v m="${max}" 'BEGIN { printf "%.2f", t / m }')" >/dev/null 2>&1 || true
+  fi
 }
 
 case "${1:-}" in

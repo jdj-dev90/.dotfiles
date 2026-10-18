@@ -1,0 +1,58 @@
+#!/bin/sh
+# Toggle a screen recording with gpu-screen-recorder (hardware encoded).
+#   screenrec region|screen   start (region: drag with slurp; screen: focused monitor)
+#   screenrec stop|status     stop / waybar JSON
+# Running again while recording stops it.
+set -eu
+
+dir="${HOME}/Videos/recordings"
+pidfile="${XDG_RUNTIME_DIR:-/tmp}/screenrec.pid"
+
+recording() { [ -f "${pidfile}" ] && kill -0 "$(cat "${pidfile}")" 2>/dev/null; }
+refresh() { pkill -RTMIN+10 -x waybar 2>/dev/null || true; }
+
+stop() {
+  pid="$(cat "${pidfile}")"
+  kill -INT "${pid}"
+  while kill -0 "${pid}" 2>/dev/null; do sleep 0.2; done
+  rm -f "${pidfile}"
+  refresh
+  file="$(ls -t "${dir}"/*.mp4 2>/dev/null | head -n 1)"
+  notify-send -a screenrec "Recording saved" "${file}"
+}
+
+case "${1:-status}" in
+  status)
+    if recording; then
+      printf '{"text":"󰑋 REC","class":"recording","tooltip":"Recording - click to stop"}\n'
+    else
+      printf '{"text":"","class":"idle"}\n'
+    fi
+    exit 0
+    ;;
+  stop) recording && stop; exit 0 ;;
+esac
+
+if recording; then
+  stop
+  exit 0
+fi
+
+case "$1" in
+  region)
+    geom="$(slurp -f '%wx%h+%x+%y')" || exit 0
+    target="-w region -region ${geom}"
+    ;;
+  screen)
+    target="-w $(hyprctl -j monitors | jq -r '.[] | select(.focused) | .name')"
+    ;;
+  *) echo "usage: screenrec region|screen|stop|status" >&2; exit 2 ;;
+esac
+
+mkdir -p "${dir}"
+out="${dir}/$(date '+%Y-%m-%d_%H-%M-%S').mp4"
+# shellcheck disable=SC2086 # target is a deliberate word list
+setsid gpu-screen-recorder ${target} -f 60 -a default_output -o "${out}" >/dev/null 2>&1 &
+echo $! > "${pidfile}"
+refresh
+notify-send -a screenrec "Recording" "click the REC indicator or run again to stop"

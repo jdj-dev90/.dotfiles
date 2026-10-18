@@ -6,7 +6,7 @@
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["custom/share", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "bluetooth", "network#traffic", "network", "battery", "tray"],
+  "modules-right": ["custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "tray", "custom/power"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -23,6 +23,35 @@
   "clock": {
     "format": "{:%a %d %b  %H:%M}",
     "tooltip-format": "{:%Y-%m-%d %H:%M:%S}"
+  },
+  "custom/rec": {
+    "exec": "$HOME/.local/scripts/screenrec status",
+    "return-type": "json",
+    "interval": 5,
+    "signal": 10,
+    "on-click": "$HOME/.local/scripts/screenrec stop"
+  },
+  "mpris": {
+    "format": "{status_icon} {dynamic}",
+    "format-paused": "{status_icon} <i>{dynamic}</i>",
+    "dynamic-order": ["artist", "title"],
+    "dynamic-len": 40,
+    "status-icons": { "playing": "󰐊", "paused": "󰏤", "stopped": "󰓛" },
+    "on-click": "playerctl play-pause",
+    "on-scroll-up": "playerctl next",
+    "on-scroll-down": "playerctl previous"
+  },
+  "custom/nightlight": {
+    "exec": "$HOME/.local/scripts/nightlight status",
+    "return-type": "json",
+    "interval": 60,
+    "signal": 11,
+    "on-click": "$HOME/.local/scripts/nightlight toggle"
+  },
+  "custom/power": {
+    "format": "󰐥",
+    "tooltip-format": "Power menu",
+    "on-click": "$HOME/.local/scripts/menu power"
   },
   "custom/share": {
     "exec": "$HOME/.local/scripts/screenshare status",

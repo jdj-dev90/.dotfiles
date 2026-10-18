@@ -1,0 +1,44 @@
+/* Kanagawa OSD for volume / brightness keys. */
+window#osd {
+  border-radius: 12px;
+  border: 1px solid #363646;
+  background: rgba(31, 31, 40, 0.95);
+}
+
+window#osd #container {
+  margin: 14px 18px;
+}
+
+window#osd image,
+window#osd label {
+  color: #dcd7ba;
+}
+
+window#osd progressbar:disabled,
+window#osd image:disabled {
+  opacity: 0.4;
+}
+
+window#osd progressbar,
+window#osd segmentedprogress {
+  min-height: 6px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+}
+
+window#osd trough,
+window#osd segment {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: #2a2a37;
+}
+
+window#osd progress,
+window#osd segment.active {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: #7e9cd8;
+}

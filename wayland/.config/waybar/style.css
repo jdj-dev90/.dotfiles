@@ -38,7 +38,11 @@ window#waybar {
 }
 
 #clock,
+#custom-rec,
 #custom-share,
+#mpris,
+#custom-nightlight,
+#custom-power,
 #custom-dock,
 #idle_inhibitor,
 #cpu,
@@ -105,6 +109,31 @@ window#waybar {
 
 #battery.critical:not(.charging) {
   background: #43242b;
+}
+
+#custom-rec.recording {
+  color: #1f1f28;
+  background: #e82424;
+}
+
+#mpris {
+  color: #957fb8;
+}
+
+#mpris.paused {
+  color: #727169;
+}
+
+#custom-nightlight {
+  color: #727169;
+}
+
+#custom-nightlight.on {
+  color: #ffa066;
+}
+
+#custom-power {
+  color: #c34043;
 }
 
 #custom-share {

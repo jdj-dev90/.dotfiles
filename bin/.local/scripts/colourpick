@@ -1,0 +1,5 @@
+#!/bin/sh
+# Pick a pixel's colour anywhere on screen; hex goes to the clipboard.
+set -eu
+colour="$(hyprpicker --format=hex --autocopy --no-fancy 2>/dev/null)" || exit 0
+[ -n "${colour}" ] && notify-send -a colourpick "Colour copied" "${colour}"

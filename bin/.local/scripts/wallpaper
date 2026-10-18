@@ -1,0 +1,31 @@
+#!/bin/sh
+# Wallpaper from ~/.wallpapers via hyprpaper. The choice is kept as the
+# ~/.cache/wallpaper symlink, which hyprpaper.conf and hyprlock.conf read.
+#   wallpaper pick|next|restore
+set -eu
+
+dir="${HOME}/.wallpapers"
+current="${HOME}/.cache/wallpaper"
+
+apply() {
+  ln -sfn "$1" "${current}"
+  hyprctl hyprpaper wallpaper ",$1" >/dev/null 2>&1 || true
+}
+
+case "${1:-pick}" in
+  pick)
+    name="$(ls "${dir}" | wofi --dmenu --insensitive --prompt wallpaper 2>/dev/null)" || exit 0
+    [ -n "${name}" ] && apply "${dir}/${name}"
+    ;;
+  next)
+    now="$(basename "$(readlink "${current}" 2>/dev/null || true)")"
+    next="$(ls "${dir}" | awk -v now="${now}" 'NR==1{first=$0} found{print; exit} $0==now{found=1} END{if(!found||NR==0)print first}' | head -n 1)"
+    [ -n "${next}" ] || next="$(ls "${dir}" | head -n 1)"
+    apply "${dir}/${next}"
+    ;;
+  restore)
+    [ -e "${current}" ] || ln -sfn "${dir}/synth-kanagawa.png" "${current}"
+    apply "$(readlink "${current}")"
+    ;;
+  *) echo "usage: wallpaper pick|next|restore" >&2; exit 2 ;;
+esac

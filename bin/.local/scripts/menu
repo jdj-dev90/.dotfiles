@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# wofi menus. `menu` (SUPER+Space) is a hub over everything else:
+#
+#   menu [hub]      actions, plus typed shortcuts:  =2*3 calculator,  ?query web search
+#   menu power      lock / suspend / log out / reboot / shut down
+#   menu windows    focus any open window
+#   menu projects   open a tmux-sessionizer project in a new terminal
+#   menu emoji      copy an emoji
+set -uo pipefail
+
+scripts="${HOME}/.local/scripts"
+
+pick() { # pick PROMPT  (choices on stdin)
+  wofi --dmenu --insensitive --prompt "$1" 2>/dev/null
+}
+
+confirm() {
+  [ "$(printf 'No\nYes\n' | pick "$1?")" = "Yes" ]
+}
+
+power() {
+  case "$(printf '󰌾  Lock\n󰤄  Suspend\n󰍃  Log out\n󰜉  Reboot\n󰐥  Shut down\n' | pick power)" in
+    *Lock) loginctl lock-session ;;
+    *Suspend) systemctl suspend ;;
+    *"Log out") confirm "Log out" && hyprctl dispatch exit ;;
+    *Reboot) confirm "Reboot" && systemctl reboot ;;
+    *"Shut down") confirm "Shut down" && systemctl poweroff ;;
+  esac
+}
+
+windows() {
+  local clients choice n
+  clients="$(hyprctl -j clients | jq -c '[.[] | select(.title != "" and (.workspace.name | startswith("special") | not))]')"
+  # Number each line so the pick maps back to its window without showing addresses.
+  choice="$(jq -r 'to_entries[] | "\(.key + 1). [\(.value.workspace.name)] \(.value.class | split(".") | last): \(.value.title)"' \
+    <<<"${clients}" | cut -c1-160 | pick window)" || return
+  n="${choice%%.*}"
+  [[ "${n}" =~ ^[0-9]+$ ]] || return
+  hyprctl dispatch focuswindow "address:$(jq -r ".[$((n - 1))].address" <<<"${clients}")" >/dev/null
+}
+
+projects() {
+  local dir
+  dir="$(zoxide query -l 2>/dev/null | grep -E "^${HOME}/(code|uni|\.dotfiles)(/|$)" \
+    | sed "s|^${HOME}|~|" | pick project)" || return
+  [ -n "${dir}" ] && ghostty -e "${scripts}/tmux-sessionizer" "${dir/#\~/${HOME}}" &
+}
+
+emoji() {
+  local file=/usr/share/unicode/emoji/emoji-test.txt choice
+  [ -r "${file}" ] || { notify-send "menu" "emoji list missing: install unicode-emoji"; return 1; }
+  # "1F600 ; fully-qualified # 😀 E1.0 grinning face" -> "😀 grinning face"
+  choice="$(sed -n 's/^[^#]*; fully-qualified *# \([^ ]*\) E[0-9.]* \(.*\)$/\1 \2/p' "${file}" | pick emoji)" || return
+  [ -n "${choice}" ] && printf '%s' "${choice%% *}" | wl-copy && notify-send "Copied ${choice%% *}"
+}
+
+calc() { # calc EXPR — digits, operators and parens only, so nothing else can run
+  local expr="$1" result
+  if [[ ! "${expr}" =~ ^[0-9[:space:]+*/%().^-]+$ ]]; then
+    notify-send "Calculator" "only numbers and + - * / % ^ ( )"
+    return 1
+  fi
+  result="$(timeout 2 python3 -c "print(eval('''${expr//^/**}''', {'__builtins__': {}}))" 2>&1)"
+  case $? in
+    0) ;;
+    124) notify-send "Calculator" "too big to work out"; return 1 ;;
+    *) notify-send "Calculator" "${result##*$'\n'}"; return 1 ;;
+  esac
+  printf '%s' "${result}" | wl-copy
+  notify-send "Calculator" "${expr} = ${result} (copied)"
+}
+
+hub() {
+  local choice
+  choice="$(cat <<'EOF' | pick "menu  (=calc ?search)"
+  Windows
+  Projects
+󰍹  Screen share: start/stop
+󰍹  Screen share: next view
+󰍉  Screen share: zoom
+󰑋  Record region
+󰑋  Record screen
+󰸉  Wallpaper
+󰖔  Night light
+  Colour picker
+󰞅  Emoji
+  Clipboard
+󰐥  Power
+EOF
+)" || return
+  case "${choice}" in
+    =*) calc "${choice#=}" ;;
+    \?*) chromium "https://www.google.com/search?q=$(jq -rn --arg q "${choice#\?}" '$q|@uri')" >/dev/null 2>&1 & ;;
+    *Windows) windows ;;
+    *Projects) projects ;;
+    *"start/stop") "${scripts}/screenshare" toggle ;;
+    *"next view") "${scripts}/screenshare" next ;;
+    *zoom) "${scripts}/screenshare" zoom ;;
+    *"Record region") "${scripts}/screenrec" region ;;
+    *"Record screen") "${scripts}/screenrec" screen ;;
+    *Wallpaper) "${scripts}/wallpaper" pick ;;
+    *"Night light") "${scripts}/nightlight" toggle ;;
+    *"Colour picker") "${scripts}/colourpick" ;;
+    *Emoji) emoji ;;
+    *Clipboard) cliphist list | pick clipboard | cliphist decode | wl-copy ;;
+    *Power) power ;;
+  esac
+}
+
+case "${1:-hub}" in
+  hub) hub ;;
+  power) power ;;
+  windows) windows ;;
+  projects) projects ;;
+  emoji) emoji ;;
+  *) sed -n '2,9p' "$0" >&2; exit 2 ;;
+esac

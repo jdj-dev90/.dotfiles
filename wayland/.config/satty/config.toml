@@ -1,0 +1,13 @@
+[general]
+# Enter copies and closes; Ctrl+S saves to the screenshots folder.
+early-exit = true
+copy-command = "wl-copy"
+actions-on-enter = ["save-to-clipboard"]
+initial-tool = "arrow"
+output-filename = "/home/jordan/.dotfiles/screenshots/%Y-%m-%d_%H-%M-%S.png"
+
+[font]
+family = "JetBrainsMono Nerd Font"
+
+[color-palette]
+palette = ["#c34043", "#ff9e3b", "#e6c384", "#98bb6c", "#7e9cd8", "#957fb8", "#dcd7ba"]
