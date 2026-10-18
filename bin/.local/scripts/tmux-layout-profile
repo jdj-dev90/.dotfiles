@@ -3,12 +3,12 @@
 # tmux-sessionizer builds:
 #
 #   panes   (docked)  one "work" window, three side-by-side panes:
-#                     term | nvim | opencode
-#   windows (laptop)  three windows: 1 editor, 2 opencode, 3 term
+#                     term | nvim | agent
+#   windows (laptop)  three windows: 1 editor, 2 agent, 3 term
 #
 # Existing sessions keep whatever shape they were created with, so after
 # docking or undocking run this to re-flow them. Panes are moved, never
-# killed, so running processes (nvim, opencode) survive.
+# killed, so running processes (nvim, the agent) survive.
 #
 # Usage: tmux-layout-profile [panes|windows|auto] [-s SESSION] [-n]
 #   auto (default) picks the mode the same way tmux-sessionizer does:
@@ -22,7 +22,7 @@ DRY_RUN=0
 # Sessionizer's window/pane roles, left to right in panes mode.
 LEFT_NAME=term
 MID_NAME=editor
-RIGHT_NAME=opencode
+RIGHT_NAME=agent
 COMBINED_NAME=work
 
 usage() {
