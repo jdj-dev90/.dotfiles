@@ -40,6 +40,7 @@ ACCOUNTS = {
         "trash": "Deleted",
     },
 }
+ACCOUNTS["gumby_sham@hotmail.com"] = ACCOUNTS["jgeltchrobb@hotmail.com"]
 
 OUT = Path.home() / ".cache/mail-clean"
 BATCH = 500
