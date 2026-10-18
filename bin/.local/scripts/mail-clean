@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Bulk-clean a mailbox over IMAP: report who fills it, then trash chosen senders.
+
+    mail-clean scan ACCOUNT                 read-only; writes a report and a plan
+    mail-clean apply ACCOUNT [--yes]        trash what the plan marks (dry run without --yes)
+
+scan reads headers only (From, Date, List-Unsubscribe) and the Sent folder's
+recipients, then writes ~/.cache/mail-clean/ACCOUNT.plan: one line per
+sender, most messages first. Edit it: lines starting with "d" are trashed
+by apply, anything else is kept. Senders you have written to are marked
+"k" and never pre-selected. apply moves messages to the account's Trash,
+which providers keep for ~30 days, so mistakes are recoverable there.
+
+Accounts: Gmail via the app password in `pass`; Outlook via an oama token.
+"""
+
+import email.utils
+import imaplib
+import json
+import re
+import subprocess
+import sys
+from collections import defaultdict
+from email.header import decode_header, make_header
+from pathlib import Path
+
+ACCOUNTS = {
+    "jdj.dev90@gmail.com": {
+        "host": "imap.gmail.com",
+        "auth": "pass",
+        "scan": ['"[Gmail]/All Mail"', '"[Gmail]/Spam"'],
+        "sent": '"[Gmail]/Sent Mail"',
+        "trash": "[Gmail]/Trash",
+    },
+    "jgeltchrobb@hotmail.com": {
+        "host": "outlook.office365.com",
+        "auth": "oama",
+        "scan": ["INBOX", "Junk", "Archive"],
+        "sent": "Sent",
+        "trash": "Deleted",
+    },
+}
+
+OUT = Path.home() / ".cache/mail-clean"
+BATCH = 500
+
+
+def connect(account):
+    cfg = ACCOUNTS[account]
+    imap = imaplib.IMAP4_SSL(cfg["host"])
+    if cfg["auth"] == "pass":
+        password = subprocess.run(["pass", "show", account], capture_output=True, text=True, check=True).stdout
+        imap.login(account, password.splitlines()[0].replace(" ", ""))
+    else:
+        token = subprocess.run(["oama", "access", account], capture_output=True, text=True, check=True).stdout.strip()
+        auth = f"user={account}\x01auth=Bearer {token}\x01\x01"
+        imap.authenticate("XOAUTH2", lambda _: auth.encode())
+    return imap
+
+
+def decode(value):
+    try:
+        return str(make_header(decode_header(value or "")))
+    except Exception:
+        return value or ""
+
+
+def headers(imap, mailbox, fields):
+    """Yield (uid, {field: value}) for every message in mailbox (read-only)."""
+    typ, _ = imap.select(mailbox, readonly=True)
+    if typ != "OK":
+        print(f"  skip {mailbox}: cannot open", file=sys.stderr)
+        return
+    _, data = imap.uid("SEARCH", None, "ALL")
+    uids = data[0].split()
+    print(f"  {mailbox}: {len(uids)} messages", file=sys.stderr)
+    want = " ".join(fields).upper()
+    for i in range(0, len(uids), BATCH):
+        chunk = b",".join(uids[i : i + BATCH]).decode()
+        _, rows = imap.uid("FETCH", chunk, f"(UID BODY.PEEK[HEADER.FIELDS ({want})])")
+        for row in rows:
+            if not isinstance(row, tuple):
+                continue
+            uid = re.search(rb"UID (\d+)", row[0]).group(1).decode()
+            msg = email.message_from_bytes(row[1])
+            yield uid, {f: msg.get(f, "") for f in fields}
+
+
+def scan(account):
+    cfg = ACCOUNTS[account]
+    imap = connect(account)
+
+    contacted = set()
+    for _, h in headers(imap, cfg["sent"], ["To", "Cc"]):
+        for _, addr in email.utils.getaddresses([h["To"], h["Cc"]]):
+            contacted.add(addr.lower())
+
+    senders = defaultdict(lambda: {"count": 0, "name": "", "newsletter": False, "latest": "", "where": defaultdict(list)})
+    for mailbox in cfg["scan"]:
+        for uid, h in headers(imap, mailbox, ["From", "Date", "List-Unsubscribe"]):
+            name, addr = email.utils.parseaddr(decode(h["From"]))
+            addr = addr.lower() or "(no sender)"
+            s = senders[addr]
+            s["count"] += 1
+            s["name"] = s["name"] or name
+            s["newsletter"] |= bool(h["List-Unsubscribe"])
+            try:
+                date = email.utils.parsedate_to_datetime(h["Date"]).date().isoformat()
+                s["latest"] = max(s["latest"], date)
+            except Exception:
+                pass
+            s["where"][mailbox].append(uid)
+    imap.logout()
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    ranked = sorted(senders.items(), key=lambda kv: -kv[1]["count"])
+    (OUT / f"{account}.json").write_text(json.dumps({a: {**s, "where": dict(s["where"])} for a, s in ranked}))
+
+    def premark(addr, s):
+        # Only bulk mail (List-Unsubscribe) from someone you've never written to.
+        return s["newsletter"] and addr not in contacted and addr != account
+
+    lines = [
+        "# d = trash, k (or anything else) = keep. Pre-marked d: newsletters/marketing",
+        "# (they carry an unsubscribe header) from senders you've never written to.",
+        "# flags: N = newsletter, R = you've written to them. Edit, then run apply.",
+        "# mark  count  latest      flags  sender",
+    ]
+    for addr, s in ranked:
+        replied = addr in contacted
+        flags = ("N" if s["newsletter"] else "-") + ("R" if replied else "-")
+        mark = "d" if premark(addr, s) else "k"
+        label = f"{s['name']} <{addr}>" if s["name"] else addr
+        lines.append(f"{mark}  {s['count']:5d}  {s['latest'] or '?':10}  {flags}     {label}")
+    plan = OUT / f"{account}.plan"
+    plan.write_text("\n".join(lines) + "\n")
+
+    total = sum(s["count"] for s in senders.values())
+    marked = sum(s["count"] for a, s in ranked if premark(a, s))
+    print(f"{total} messages from {len(senders)} senders; {len(contacted)} people you've written to.")
+    print(f"Pre-marked for trash: {marked} messages. Review: {plan}")
+
+
+def apply(account, really):
+    cfg = ACCOUNTS[account]
+    data = json.loads((OUT / f"{account}.json").read_text())
+    chosen = []
+    for line in (OUT / f"{account}.plan").read_text().splitlines():
+        if line.startswith("d "):
+            addr = re.search(r"<([^>]+)>\s*$", line)
+            chosen.append(addr.group(1) if addr else line.split()[-1])
+    by_box = defaultdict(list)
+    for addr in chosen:
+        for mailbox, uids in data.get(addr, {}).get("where", {}).items():
+            by_box[mailbox].extend(uids)
+    total = sum(len(u) for u in by_box.values())
+    print(f"{len(chosen)} senders, {total} messages -> {cfg['trash']}")
+    if not really:
+        print("Dry run. Re-run with --yes to move them.")
+        return
+    imap = connect(account)
+    for mailbox, uids in by_box.items():
+        imap.select(mailbox)
+        for i in range(0, len(uids), BATCH):
+            chunk = ",".join(uids[i : i + BATCH])
+            typ, _ = imap.uid("MOVE", chunk, f'"{cfg["trash"]}"')
+            if typ != "OK":  # servers without MOVE
+                imap.uid("COPY", chunk, f'"{cfg["trash"]}"')
+                imap.uid("STORE", chunk, "+FLAGS", r"(\Deleted)")
+                imap.expunge()
+        print(f"  {mailbox}: moved {len(uids)}")
+    imap.logout()
+    print("Done. Run scan again to see what's left.")
+
+
+def main(argv):
+    if len(argv) < 3 or argv[1] not in ("scan", "apply") or argv[2] not in ACCOUNTS:
+        print(__doc__.strip(), file=sys.stderr)
+        print("\naccounts: " + ", ".join(ACCOUNTS), file=sys.stderr)
+        return 2
+    if argv[1] == "scan":
+        scan(argv[2])
+    else:
+        apply(argv[2], "--yes" in argv)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
