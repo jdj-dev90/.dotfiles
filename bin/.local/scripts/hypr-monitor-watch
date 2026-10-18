@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Re-run hypr-monitor-profile whenever a monitor is plugged in or unplugged.
+# Started once per Hyprland session via exec-once; exits with Hyprland.
+set -u
+
+log_file="${HOME}/.cache/hypr-monitor-profile.log"
+sock="${XDG_RUNTIME_DIR}/hypr/${HYPRLAND_INSTANCE_SIGNATURE}/.socket2.sock"
+
+is_monitor_event() {
+  case "$1" in
+    # screenshare's virtual output is not a dock change.
+    *SHARE*) return 1 ;;
+    monitoradded*|monitorremoved*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+socat -U - "UNIX-CONNECT:${sock}" | while IFS= read -r line; do
+  is_monitor_event "${line}" || continue
+
+  # A dock brings its outputs up in a burst; wait until monitor events have
+  # been quiet for 2s so the profile is applied once, against the final set.
+  deadline=$((SECONDS + 2))
+  while (( SECONDS < deadline )); do
+    IFS= read -r -t 1 line || continue
+    is_monitor_event "${line}" && deadline=$((SECONDS + 2))
+  done
+
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "Monitor change detected" >> "${log_file}"
+  hypr-monitor-profile || true
+
+  # Swallow events caused by the profile's own reload so it does not retrigger.
+  while IFS= read -r -t 1 line; do :; done
+done

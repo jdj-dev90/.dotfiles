@@ -44,6 +44,9 @@ Current `STOW_FOLDERS` source of truth is in `zsh/.zsh_profile`.
   - triggers `hyprctl reload`
   - remaps workspaces to expected monitors
   - reshapes live tmux sessions via `tmux-layout-profile` to match the profile
+- `bin/.local/scripts/hypr-monitor-watch` (exec-once) listens on Hyprland's
+  socket2 for `monitoradded`/`monitorremoved` and re-runs `hypr-monitor-profile`
+  after a 2s debounce, so docking/undocking mid-session switches profiles.
 
 ### tmux layout profiles
 
