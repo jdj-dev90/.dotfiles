@@ -38,6 +38,7 @@ window#waybar {
 }
 
 #clock,
+#custom-share,
 #custom-dock,
 #idle_inhibitor,
 #cpu,
@@ -104,6 +105,20 @@ window#waybar {
 
 #battery.critical:not(.charging) {
   background: #43242b;
+}
+
+#custom-share {
+  color: #727169;
+}
+
+#custom-share.live {
+  color: #1f1f28;
+  background: #c34043;
+}
+
+#custom-share.paused {
+  color: #1f1f28;
+  background: #e6c384;
 }
 
 #custom-dock {

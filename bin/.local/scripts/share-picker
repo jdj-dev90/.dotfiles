@@ -1,0 +1,12 @@
+#!/bin/sh
+# xdg-desktop-portal-hyprland picker (screencopy:custom_picker_binary).
+# While screenshare's SHARE output exists, every screen-share request gets it
+# without a prompt; otherwise fall back to the stock picker.
+set -eu
+
+if hyprctl -j monitors | grep -q '"name": "SHARE"'; then
+  printf '[SELECTION]/screen:SHARE\n'
+  exit 0
+fi
+
+exec hyprland-share-picker "$@"

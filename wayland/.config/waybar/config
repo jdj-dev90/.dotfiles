@@ -1,11 +1,12 @@
 {
   "layer": "top",
+  "output": ["!SHARE", "*"],
   "position": "top",
   "height": 32,
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "bluetooth", "network#traffic", "network", "battery", "tray"],
+  "modules-right": ["custom/share", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "bluetooth", "network#traffic", "network", "battery", "tray"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -22,6 +23,15 @@
   "clock": {
     "format": "{:%a %d %b  %H:%M}",
     "tooltip-format": "{:%Y-%m-%d %H:%M:%S}"
+  },
+  "custom/share": {
+    "exec": "$HOME/.local/scripts/screenshare status",
+    "return-type": "json",
+    "interval": 10,
+    "signal": 9,
+    "on-click": "$HOME/.local/scripts/screenshare toggle",
+    "on-scroll-up": "$HOME/.local/scripts/screenshare prev",
+    "on-scroll-down": "$HOME/.local/scripts/screenshare next"
   },
   "custom/dock": {
     "exec": "$HOME/.local/scripts/waybar-dock-status",

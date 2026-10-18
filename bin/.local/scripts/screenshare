@@ -1,0 +1,572 @@
+#!/usr/bin/env python3
+"""Custom screen-share view: OBS composes the picture, calls share a screen.
+
+`start` creates an invisible Hyprland output (SHARE), launches OBS and parks
+its program projector fullscreen on that output. In Meet/Zoom, share the
+SHARE screen; switching OBS scenes changes what the call sees mid-share.
+
+    screenshare start|stop|toggle
+    screenshare scene <n|name>     n = 1-based index into SCENES, 0 = Paused
+    screenshare next|prev
+    screenshare status             waybar custom module JSON
+
+Talks to OBS over its bundled obs-websocket (localhost, password generated
+on first run and kept in OBS's own config, not in this repo). Monitors are
+captured with the wlrobs plugin (wlr-screencopy, by output name), not the
+screencast portal: portal restore tokens are single-use, so every start with
+a monitor unplugged burned them and re-prompted.
+"""
+
+import base64
+import fcntl
+import hashlib
+import json
+import os
+import secrets
+import socket
+import struct
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+OUTPUT = "SHARE"
+CANVAS = (2560, 1440)
+FPS = 30
+COLLECTION = "ScreenShare"
+PROFILE = "ScreenShare"
+PROJECTOR_TITLE = "Projector - Program"
+PAUSED = "Paused"
+WAYBAR_SIGNAL = 9
+
+# (scene name, monitor, crop) - crop is None, "left" or "right" half.
+# Monitor names are machine-specific (see hypr/monitors.docked.conf).
+SCENES = [
+    ("Widescreen left", "DP-7", "left"),
+    ("Widescreen right", "DP-7", "right"),
+    ("Widescreen", "DP-7", None),
+    ("Laptop", "eDP-1", None),
+    ("Top left", "DP-6", None),
+    ("Top right", "DP-8", None),
+]
+DEFAULT_SCENE = "Widescreen left"
+
+OBS_CONFIG = Path.home() / ".config/obs-studio"
+WS_CONFIG = OBS_CONFIG / "plugin_config/obs-websocket/config.json"
+RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+CAPTURE_KIND = "wlrobs-scpy"
+STATE = Path.home() / ".cache/screenshare.scene"
+LOG = Path.home() / ".cache/screenshare.log"
+
+KANAGAWA_BG = 0xFF281F1F  # #1f1f28 as OBS ABGR
+KANAGAWA_FG = 0xFFBAD7DC  # #dcd7ba as OBS ABGR
+
+
+# --- minimal obs-websocket v5 client (stdlib only) -------------------------
+
+
+class OBSError(RuntimeError):
+    pass
+
+
+class OBS:
+    def __init__(self, port, password, timeout=60):
+        self.sock = socket.create_connection(("127.0.0.1", port), timeout=timeout)
+        self.next_id = 0
+        key = base64.b64encode(secrets.token_bytes(16)).decode()
+        self.sock.sendall(
+            (
+                "GET / HTTP/1.1\r\n"
+                f"Host: 127.0.0.1:{port}\r\n"
+                "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+                f"Sec-WebSocket-Key: {key}\r\n"
+                "Sec-WebSocket-Version: 13\r\n"
+                "Sec-WebSocket-Protocol: obswebsocket.json\r\n\r\n"
+            ).encode()
+        )
+        head = b""
+        while b"\r\n\r\n" not in head:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise OBSError("websocket handshake closed")
+            head += chunk
+        if b" 101 " not in head.split(b"\r\n", 1)[0]:
+            raise OBSError("websocket handshake refused")
+        self.buf = head.split(b"\r\n\r\n", 1)[1]
+
+        hello = self._recv()["d"]
+        identify = {"rpcVersion": 1, "eventSubscriptions": 0}
+        auth = hello.get("authentication")
+        if auth:
+            secret = base64.b64encode(
+                hashlib.sha256((password + auth["salt"]).encode()).digest()
+            ).decode()
+            identify["authentication"] = base64.b64encode(
+                hashlib.sha256((secret + auth["challenge"]).encode()).digest()
+            ).decode()
+        self._send({"op": 1, "d": identify})
+        if self._recv().get("op") != 2:
+            raise OBSError("obs-websocket identify failed")
+
+    def _read(self, n):
+        while len(self.buf) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise OBSError("websocket closed")
+            self.buf += chunk
+        out, self.buf = self.buf[:n], self.buf[n:]
+        return out
+
+    def _send(self, msg, opcode=1):
+        data = json.dumps(msg).encode() if opcode == 1 else msg
+        head = bytes([0x80 | opcode])
+        n = len(data)
+        if n < 126:
+            head += bytes([0x80 | n])
+        elif n < 1 << 16:
+            head += bytes([0x80 | 126]) + struct.pack("!H", n)
+        else:
+            head += bytes([0x80 | 127]) + struct.pack("!Q", n)
+        mask = secrets.token_bytes(4)
+        self.sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
+
+    def _recv(self):
+        payload = b""
+        while True:
+            b0, b1 = self._read(2)
+            n = b1 & 0x7F
+            if n == 126:
+                (n,) = struct.unpack("!H", self._read(2))
+            elif n == 127:
+                (n,) = struct.unpack("!Q", self._read(8))
+            data = self._read(n)
+            opcode = b0 & 0x0F
+            if opcode == 9:
+                self._send(data, opcode=10)
+                continue
+            if opcode == 8:
+                raise OBSError("websocket closed by OBS")
+            payload += data
+            if b0 & 0x80:
+                return json.loads(payload)
+
+    def call(self, request_type, check=True, **data):
+        deadline = time.time() + 30
+        while True:
+            self.next_id += 1
+            rid = str(self.next_id)
+            self._send({"op": 6, "d": {"requestType": request_type, "requestId": rid, "requestData": data}})
+            while True:
+                msg = self._recv()
+                if msg.get("op") == 7 and msg["d"].get("requestId") == rid:
+                    break
+            status = msg["d"]["requestStatus"]
+            # 207 = NotReady: OBS is still starting up or switching collection.
+            if status["code"] == 207 and time.time() < deadline:
+                time.sleep(0.5)
+                continue
+            if check and not status["result"]:
+                raise OBSError(f"{request_type}: {status.get('comment', status['code'])}")
+            return msg["d"].get("responseData", {})
+
+
+# --- helpers ---------------------------------------------------------------
+
+
+def log(msg):
+    with LOG.open("a") as f:
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
+
+
+def hyprctl_json(*args):
+    out = subprocess.run(["hyprctl", "-j", *args], capture_output=True, text=True).stdout
+    return json.loads(out or "[]")
+
+
+def monitors():
+    return {m["name"]: m for m in hyprctl_json("monitors", "all")}
+
+
+def obs_running():
+    return subprocess.run(["pgrep", "-x", "obs"], capture_output=True).returncode == 0
+
+
+def refresh_waybar():
+    subprocess.run(["pkill", f"-RTMIN+{WAYBAR_SIGNAL}", "-x", "waybar"], capture_output=True)
+
+
+def notify(msg):
+    subprocess.run(["notify-send", "-a", "screenshare", "Screen share", msg], capture_output=True)
+
+
+def ws_settings():
+    """Enable obs-websocket with a local password; returns (port, password)."""
+    cfg = json.loads(WS_CONFIG.read_text()) if WS_CONFIG.exists() else {}
+    wanted = {
+        "server_enabled": True,
+        "auth_required": True,
+        "first_load": False,
+        "alerts_enabled": False,
+    }
+    changed = any(cfg.get(k) != v for k, v in wanted.items()) or not cfg.get("server_password")
+    if changed:
+        if obs_running():
+            raise SystemExit("screenshare: quit OBS once so its websocket can be enabled")
+        cfg.update(wanted)
+        cfg.setdefault("server_port", 4455)
+        cfg["server_password"] = cfg.get("server_password") or secrets.token_urlsafe(24)
+        WS_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+        WS_CONFIG.write_text(json.dumps(cfg, indent=4))
+        WS_CONFIG.chmod(0o600)
+    return cfg["server_port"], cfg["server_password"]
+
+
+def connect(wait=0):
+    port, password = ws_settings()
+    deadline = time.time() + wait
+    while True:
+        try:
+            return OBS(port, password)
+        except (OSError, OBSError):
+            if time.time() >= deadline:
+                raise
+            time.sleep(0.5)
+
+
+def scene_names():
+    return [name for name, _, _ in SCENES] + [PAUSED]
+
+
+def available_scenes():
+    """Scenes whose monitor is plugged in (Paused always is)."""
+    live = monitors()
+    return [name for name, monitor, _ in SCENES if monitor in live] + [PAUSED]
+
+
+def fallback_scene():
+    """DEFAULT_SCENE when docked, else the first view that can show something."""
+    names = available_scenes()
+    return DEFAULT_SCENE if DEFAULT_SCENE in names else names[0]
+
+
+def resolve_scene(arg):
+    if arg.isdigit():
+        n = int(arg)
+        return PAUSED if n == 0 else SCENES[n - 1][0]
+    for name in scene_names():
+        if name.lower() == arg.lower():
+            return name
+    raise SystemExit(f"screenshare: unknown scene {arg!r}; one of {scene_names()}")
+
+
+# --- OBS setup ---------------------------------------------------------------
+
+
+def ensure_profile_and_collection(obs):
+    profiles = obs.call("GetProfileList")
+    if profiles["currentProfileName"] != PROFILE:
+        if PROFILE in profiles["profiles"]:
+            obs.call("SetCurrentProfile", profileName=PROFILE)
+        else:
+            obs.call("CreateProfile", profileName=PROFILE)
+    # Only when needed: a video reset restarts every capture.
+    video = {
+        "baseWidth": CANVAS[0],
+        "baseHeight": CANVAS[1],
+        "outputWidth": CANVAS[0],
+        "outputHeight": CANVAS[1],
+        "fpsNumerator": FPS,
+        "fpsDenominator": 1,
+    }
+    current = obs.call("GetVideoSettings")
+    if any(current.get(k) != v for k, v in video.items()):
+        obs.call("SetVideoSettings", check=False, **video)
+
+    # The collection file is written before launch (see ensure_collection_file):
+    # CreateSceneCollection stalls until OBS's hidden main window gets events.
+    current = obs.call("GetSceneCollectionList")["currentSceneCollectionName"]
+    if current != COLLECTION:
+        raise OBSError(f"OBS loaded collection {current!r}, expected {COLLECTION!r}")
+
+
+def ensure_collection_file():
+    path = OBS_CONFIG / f"basic/scenes/{COLLECTION}.json"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"name": COLLECTION, "sources": [], "scene_order": [], "groups": []}))
+
+
+# OBS remembers the last profile/collection it ran with. Launching it for a
+# share must not change what a plain `obs` opens, so restore them on stop.
+USER_INI = OBS_CONFIG / "user.ini"
+OBS_DEFAULTS = RUNTIME / "screenshare.obs-defaults"
+DEFAULT_KEYS = ("Profile", "ProfileDir", "SceneCollection", "SceneCollectionFile")
+
+
+def remember_obs_defaults():
+    if OBS_DEFAULTS.exists() or not USER_INI.exists():
+        return
+    keep = [
+        line for line in USER_INI.read_text().splitlines()
+        if line.split("=", 1)[0] in DEFAULT_KEYS and "ScreenShare" not in line
+    ]
+    OBS_DEFAULTS.write_text("\n".join(keep) + "\n")
+
+
+def restore_obs_defaults():
+    if not OBS_DEFAULTS.exists() or not USER_INI.exists():
+        return
+    saved = dict(line.split("=", 1) for line in OBS_DEFAULTS.read_text().splitlines() if "=" in line)
+    lines = []
+    for line in USER_INI.read_text().splitlines():
+        key = line.split("=", 1)[0]
+        lines.append(f"{key}={saved[key]}" if key in saved else line)
+    USER_INI.write_text("\n".join(lines) + "\n")
+    OBS_DEFAULTS.unlink()
+
+
+def fit(obs, scene, item_id, crop=None, width=0):
+    transform = {
+        "alignment": 0,
+        "positionX": CANVAS[0] / 2,
+        "positionY": CANVAS[1] / 2,
+        "boundsType": "OBS_BOUNDS_SCALE_INNER",
+        "boundsAlignment": 0,
+        "boundsWidth": CANVAS[0],
+        "boundsHeight": CANVAS[1],
+        "cropLeft": width // 2 if crop == "right" else 0,
+        "cropRight": width // 2 if crop == "left" else 0,
+    }
+    obs.call("SetSceneItemTransform", sceneName=scene, sceneItemId=item_id, sceneItemTransform=transform)
+
+
+def capture_input(monitor):
+    return f"Capture {monitor}"
+
+
+def ensure_scenes(obs):
+    """Create missing scenes/sources. Idempotent; skips absent monitors (their
+    crop needs the monitor's width), which get created on a docked start."""
+    have_scenes = {s["sceneName"] for s in obs.call("GetSceneList")["scenes"]}
+    inputs = {i["inputName"]: i["inputKind"] for i in obs.call("GetInputList")["inputs"]}
+    live = monitors()
+
+    # Captures from the old portal-based setup: replace them.
+    for name, kind in list(inputs.items()):
+        if name.startswith("Capture ") and kind != CAPTURE_KIND:
+            obs.call("RemoveInput", inputName=name)
+            del inputs[name]
+
+    if PAUSED not in have_scenes:
+        obs.call("CreateScene", sceneName=PAUSED)
+        obs.call(
+            "CreateInput",
+            sceneName=PAUSED,
+            inputName="Paused background",
+            inputKind="color_source_v3",
+            inputSettings={"color": KANAGAWA_BG, "width": CANVAS[0], "height": CANVAS[1]},
+        )
+        text = obs.call(
+            "CreateInput",
+            sceneName=PAUSED,
+            inputName="Paused text",
+            inputKind="text_ft2_source_v2",
+            inputSettings={
+                "text": "Screen paused",
+                "font": {"face": "JetBrainsMono Nerd Font", "size": 96, "style": "Regular", "flags": 0},
+                "color1": KANAGAWA_FG,
+                "color2": KANAGAWA_FG,
+            },
+        )
+        obs.call(
+            "SetSceneItemTransform",
+            sceneName=PAUSED,
+            sceneItemId=text["sceneItemId"],
+            sceneItemTransform={"alignment": 0, "positionX": CANVAS[0] / 2, "positionY": CANVAS[1] / 2},
+        )
+        have_scenes.add(PAUSED)
+
+    for name, monitor, crop in SCENES:
+        source = capture_input(monitor)
+        if monitor not in live:
+            continue
+        if name not in have_scenes:
+            obs.call("CreateScene", sceneName=name)
+            have_scenes.add(name)
+        items = obs.call("GetSceneItemList", sceneName=name)["sceneItems"]
+        if any(i["sourceName"] == source for i in items):
+            continue
+        if source in inputs:
+            item_id = obs.call("CreateSceneItem", sceneName=name, sourceName=source)["sceneItemId"]
+        else:
+            item_id = obs.call(
+                "CreateInput",
+                sceneName=name,
+                inputName=source,
+                inputKind=CAPTURE_KIND,
+                inputSettings={"output": monitor, "show_cursor": True},
+            )["sceneItemId"]
+            inputs[source] = CAPTURE_KIND
+        fit(obs, name, item_id, crop, live[monitor]["width"])
+        log(f"created scene {name} ({monitor}, crop={crop})")
+
+    # New collections come with a default scene and desktop/mic audio we never use.
+    for extra in have_scenes - set(scene_names()):
+        obs.call("SetCurrentProgramScene", sceneName=PAUSED)
+        obs.call("RemoveScene", sceneName=extra, check=False)
+    for audio in obs.call("GetInputList")["inputs"]:
+        if audio["inputKind"] in ("pulse_output_capture", "pulse_input_capture"):
+            obs.call("RemoveInput", inputName=audio["inputName"], check=False)
+
+
+# --- commands ----------------------------------------------------------------
+
+
+def projector_open():
+    return any(c["title"] == PROJECTOR_TITLE for c in hyprctl_json("clients"))
+
+
+def set_scene(obs, name):
+    obs.call("SetCurrentProgramScene", sceneName=name)
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(name)
+    refresh_waybar()
+
+
+def launch_obs():
+    if not obs_running():
+        ws_settings()
+        ensure_collection_file()
+        remember_obs_defaults()
+        with LOG.open("a") as out:
+            subprocess.Popen(
+                ["obs", "--collection", COLLECTION, "--profile", PROFILE, "--disable-shutdown-check"],
+                stdout=out, stderr=out, stdin=subprocess.DEVNULL, start_new_session=True,
+            )
+    obs = connect(wait=30)
+    ensure_profile_and_collection(obs)
+    hide_obs_window()
+    return obs
+
+
+def quit_obs():
+    # SIGTERM is a clean quit: OBS saves the collection.
+    subprocess.run(["pkill", "-TERM", "-x", "obs"])
+    for _ in range(60):
+        if not obs_running():
+            return
+        time.sleep(0.25)
+
+
+def hide_obs_window():
+    """Park OBS's main window out of sight; it is only driven over the websocket."""
+    for _ in range(20):
+        for c in hyprctl_json("clients"):
+            if c["class"] == "com.obsproject.Studio" and c["title"].startswith("OBS "):
+                if c["workspace"]["name"] != "special:obs":
+                    subprocess.run(
+                        ["hyprctl", "dispatch", "movetoworkspacesilent", f"special:obs,address:{c['address']}"],
+                        capture_output=True,
+                    )
+                return
+        time.sleep(0.25)
+
+
+def start():
+    notify("Starting share view...")
+    if OUTPUT not in monitors():
+        subprocess.run(["hyprctl", "output", "create", "headless", OUTPUT], capture_output=True)
+
+    obs = launch_obs()
+    if CAPTURE_KIND not in obs.call("GetInputKindList")["inputKinds"]:
+        raise OBSError(f"OBS plugin for {CAPTURE_KIND} missing: install wlrobs")
+    ensure_scenes(obs)
+
+    scene = STATE.read_text().strip() if STATE.exists() else DEFAULT_SCENE
+    if scene not in available_scenes():
+        scene = fallback_scene()
+    set_scene(obs, scene)
+
+    if not projector_open():
+        obs.call("OpenVideoMixProjector", videoMixType="OBS_WEBSOCKET_VIDEO_MIX_TYPE_PROGRAM")
+    notify(f"Live view ready on {OUTPUT}: {scene}. Share the {OUTPUT} screen.")
+
+
+def stop():
+    if obs_running():
+        quit_obs()
+    restore_obs_defaults()
+    if OUTPUT in monitors():
+        subprocess.run(["hyprctl", "output", "remove", OUTPUT], capture_output=True)
+    refresh_waybar()
+
+
+def active():
+    return OUTPUT in monitors() and obs_running()
+
+
+def step(delta):
+    obs = connect()
+    current = obs.call("GetCurrentProgramScene")["currentProgramSceneName"]
+    have = {s["sceneName"] for s in obs.call("GetSceneList")["scenes"]}
+    names = [n for n in available_scenes() if n != PAUSED and n in have]
+    i = names.index(current) if current in names else -1
+    set_scene(obs, names[(i + delta) % len(names)])
+
+
+def status():
+    if not active():
+        out = {"text": "󰍺", "class": "inactive", "tooltip": "Screen share view off\nclick: start"}
+    else:
+        scene = STATE.read_text().strip() if STATE.exists() else "?"
+        out = {
+            "text": f"󰍹 {scene}",
+            "class": "paused" if scene == PAUSED else "live",
+            "tooltip": f"Sharing view: {scene}\nshare the {OUTPUT} screen in your call\n"
+            "click: stop  scroll: switch view",
+        }
+    print(json.dumps(out, ensure_ascii=False))
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "status"
+    if cmd != "status":
+        # One command at a time: a second toggle during the ~2s start used to
+        # see a half-started share and stop it again.
+        lock = open(RUNTIME / "screenshare.lock", "w")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+    try:
+        if cmd == "start":
+            start()
+        elif cmd == "stop":
+            stop()
+        elif cmd == "toggle":
+            stop() if active() else start()
+        elif cmd == "scene" and len(argv) > 2:
+            if not active():
+                start()
+            scene = resolve_scene(argv[2])
+            if scene not in available_scenes():
+                notify(f"{scene}: monitor not connected")
+                return 1
+            set_scene(connect(), scene)
+        elif cmd in ("next", "prev"):
+            if active():
+                step(1 if cmd == "next" else -1)
+        elif cmd == "status":
+            status()
+        else:
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+    except (OSError, OBSError) as e:
+        log(f"{cmd} failed: {e}")
+        notify(f"{cmd} failed: {e}")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
