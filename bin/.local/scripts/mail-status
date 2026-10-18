@@ -1,0 +1,21 @@
+#!/bin/sh
+# Waybar: unread inbox mail across every mutt-wizard account (notmuch index,
+# refreshed by mailsync). Click opens neomutt via waybar-popup mail.
+set -eu
+
+maildir="${HOME}/.local/share/mail"
+total=0
+tip=""
+for dir in "${maildir}"/*/; do
+  account="$(basename "${dir}")"
+  [ -d "${dir}INBOX" ] || continue
+  n="$(notmuch count "tag:unread and folder:\"${account}/INBOX\"" 2>/dev/null || echo 0)"
+  total=$((total + n))
+  tip="${tip}${tip:+\n}${n}  ${account}"
+done
+
+if [ "${total}" -gt 0 ]; then
+  printf '{"text":"󰇮 %s","class":"unread","tooltip":"%s\\nclick: neomutt"}\n' "${total}" "${tip}"
+else
+  printf '{"text":"󰇯","class":"none","tooltip":"No unread mail\\nclick: neomutt"}\n'
+fi

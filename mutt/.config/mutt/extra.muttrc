@@ -1,0 +1,24 @@
+# vim: filetype=neomuttrc
+# Additions on top of mutt-wizard. Sourced last from ~/.config/mutt/muttrc.
+
+set index_format = "%4C %Z %{%d %b %H:%M}  %-20.20F  %s %> %?X?󰏢 ?%c"
+set date_format = "%a %d %b %Y %H:%M"
+set sidebar_width = 28
+set sidebar_format = "%D%?F? 󰈻%F?%* %?N?%N/?%S"
+set sidebar_divider_char = "│"
+set status_format = " %f  %?n?󰇮 %n new  ?%?t?󰄬 %t tagged  ?%?d?󰆴 %d deleted  ?%>  %m msgs %P "
+set pager_index_lines = 8
+set pager_context = 3
+set pager_stop = yes
+set menu_scroll = yes
+set tilde = yes
+
+# Unified views across every account (notmuch index, updated by mailsync).
+set nm_default_url = "notmuch:///home/jordan/.local/share/mail"
+set nm_query_window_duration = 0
+set virtual_spool_file = no
+
+# gu: unread everywhere, gI: every inbox, g/: notmuch search (gi/ga/gs are mutt-wizard's)
+macro index,pager gu "<vfolder-from-query>tag:inbox and tag:unread and not folder:/Junk|Spam/<enter>" "unread, all accounts"
+macro index,pager gI "<vfolder-from-query>tag:inbox and folder:/INBOX$/<enter>" "inbox, all accounts"
+macro index,pager g/ "<vfolder-from-query>" "notmuch search, all accounts"

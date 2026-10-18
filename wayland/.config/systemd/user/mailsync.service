@@ -1,0 +1,7 @@
+[Unit]
+Description=Sync mail (mutt-wizard mailsync) and refresh the waybar count
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mailsync
+ExecStartPost=-/usr/bin/pkill -RTMIN+15 -x waybar

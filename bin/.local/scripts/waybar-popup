@@ -17,8 +17,9 @@ case "${1:-}" in
   bluetooth) title=Bluetooth; cmd="$(pick bluetui bluetoothctl)" ;;
   audio)     title=Audio;     cmd="$(pick wiremix ncpamixer pulsemixer)" ;;
   updates)   title=Updates;   cmd="$(pick yay pacman)" ;;
+  mail)      title=Mail;      cmd="$(pick neomutt)" ;;
   *)
-    echo "usage: waybar-popup bluetooth|audio|updates" >&2
+    echo "usage: waybar-popup bluetooth|audio|updates|mail" >&2
     exit 2
     ;;
 esac
@@ -44,5 +45,10 @@ if [ "$1" = updates ]; then
 fi
 
 # cmd is word-split on purpose: it may carry flags (e.g. ncpamixer --tab=output).
+# Mail: refresh the unread count once neomutt closes.
+if [ "$1" = mail ]; then
+  exec ghostty --class="${class}" --title="${title}" -e sh -c "${cmd}; pkill -RTMIN+15 -x waybar"
+fi
+
 # shellcheck disable=SC2086
 exec ghostty --class="${class}" --title="${title}" -e ${cmd}

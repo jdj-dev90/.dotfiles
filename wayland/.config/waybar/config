@@ -6,7 +6,7 @@
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["custom/work", "custom/agents", "custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "tray", "custom/power"],
+  "modules-right": ["custom/work", "custom/agents", "custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "custom/mail", "tray", "custom/power"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -68,6 +68,13 @@
     "interval": 1800,
     "signal": 12,
     "on-click": "$HOME/.local/scripts/waybar-popup updates"
+  },
+  "custom/mail": {
+    "exec": "$HOME/.local/scripts/mail-status",
+    "return-type": "json",
+    "interval": 300,
+    "signal": 15,
+    "on-click": "$HOME/.local/scripts/waybar-popup mail"
   },
   "custom/power": {
     "format": "󰐥",

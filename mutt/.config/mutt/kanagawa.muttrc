@@ -1,0 +1,70 @@
+# vim: filetype=neomuttrc
+# Kanagawa (wave) for NeoMutt. Needs a truecolor terminal.
+set color_directcolor = yes
+
+color normal      "#dcd7ba" default
+color error       "#e82424" default
+color warning     "#ff9e3b" default
+color message     "#7e9cd8" default
+color prompt      "#e6c384" default
+color status      "#c8c093" "#2a2a37"
+color indicator   "#dcd7ba" "#2d4f67"
+color tree        "#957fb8" default
+color tilde       "#363646" default
+color markers     "#727169" default
+color search      "#1f1f28" "#e6c384"
+
+# Index: dim by default, bright for new, colour for flags.
+color index          "#c8c093" default "~A"
+color index_number   "#727169" default
+color index_date     "#7fb4ca" default
+color index_author   "#957fb8" default "~A"
+color index_subject  "#dcd7ba" default "~A"
+color index_size     "#727169" default
+color index_flags    "#ffa066" default "~A"
+color index          "#e6c384" default "~N"
+color index_author   "#e6c384" default "~N"
+color index_subject  "#e6c384" default "~N"
+color index          "#98bb6c" default "~F"
+color index_author   "#98bb6c" default "~F"
+color index_subject  "#98bb6c" default "~F"
+color index          "#e46876" default "~D"
+color index_author   "#e46876" default "~D"
+color index_subject  "#e46876" default "~D"
+color index          "#1f1f28" "#7e9cd8" "~T"
+color index_author   "#1f1f28" "#7e9cd8" "~T"
+color index_subject  "#1f1f28" "#7e9cd8" "~T"
+
+# Sidebar
+color sidebar_divider   "#363646" default
+color sidebar_ordinary  "#c8c093" default
+color sidebar_highlight "#dcd7ba" "#2d4f67"
+color sidebar_indicator "#1f1f28" "#7e9cd8"
+color sidebar_new       "#e6c384" default
+color sidebar_unread    "#e6c384" default
+color sidebar_flagged   "#98bb6c" default
+
+# Pager
+color hdrdefault  "#727169" default
+color header      "#957fb8" default "^From:"
+color header      "#7e9cd8" default "^(To|Cc|Bcc):"
+color header      "#e6c384" default "^Subject:"
+color header      "#7fb4ca" default "^Date:"
+color quoted      "#7fb4ca" default
+color quoted1     "#957fb8" default
+color quoted2     "#98bb6c" default
+color quoted3     "#c0a36e" default
+color signature   "#727169" default
+color attachment  "#ffa066" default
+color bold        "#dcd7ba" default
+color underline   "#7e9cd8" default
+color body        "#7fb4ca" default "(https?|ftp)://[^ \t\n>\"]+"
+color body        "#957fb8" default "[-a-z_0-9.%$+]+@[-a-z_0-9.]+\\.[a-z]+"
+color body        "#98bb6c" default "^gpg: Good signature.*"
+color body        "#e82424" default "^gpg: BAD signature.*"
+
+# Compose
+color compose header             "#727169" default
+color compose security_encrypt   "#98bb6c" default
+color compose security_sign      "#7e9cd8" default
+color compose security_none      "#727169" default

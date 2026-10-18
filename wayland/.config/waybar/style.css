@@ -45,6 +45,7 @@ window#waybar {
 #mpris,
 #custom-nightlight,
 #custom-updates,
+#custom-mail,
 #custom-power,
 #custom-dock,
 #idle_inhibitor,
@@ -159,6 +160,14 @@ window#waybar {
 
 #custom-updates {
   color: #e6c384;
+}
+
+#custom-mail {
+  color: #727169;
+}
+
+#custom-mail.unread {
+  color: #7fb4ca;
 }
 
 #custom-power {
