@@ -21,6 +21,7 @@ so Meet joins as the right user.
 import email
 import email.policy
 import fcntl
+import html
 import json
 import os
 import re
@@ -234,6 +235,8 @@ def refresh():
         tmp = EVENTS.with_suffix(".tmp")
         tmp.write_text(json.dumps(list(unique.values())))
         tmp.replace(EVENTS)
+    # Every bar (one per monitor) polls on its own timer; redraw them together.
+    subprocess.run(["pkill", "-RTMIN+16", "-x", "waybar"], check=False)
 
 
 def load():
@@ -308,8 +311,10 @@ def waybar():
         warn(e)
     title = e["title"] if len(e["title"]) <= 28 else e["title"][:27] + "…"
     tip = "\n".join(f"{hhmm(x['start'])}  {SOURCES[x['source']]['label']:<8} {x['title']}" for x in (today or events[:5]))
-    print(json.dumps({"text": f"󰤙 {when} {title}", "class": cls,
-                      "tooltip": f"{tip}\n\nclick: join  ·  right-click: all meetings"}, ensure_ascii=False))
+    # waybar parses both as Pango markup: a bare "&" (as in "T&W") rejects the update.
+    print(json.dumps({"text": html.escape(f"󰤙 {when} {title}", quote=False), "class": cls,
+                      "tooltip": html.escape(f"{tip}\n\nclick: join  ·  right-click: all meetings", quote=False)},
+                     ensure_ascii=False))
 
 
 def join():
