@@ -8,6 +8,7 @@ SHARE screen; switching OBS scenes changes what the call sees mid-share.
     screenshare start|stop|toggle
     screenshare scene <n|name>     n = 1-based index into SCENES, 0 = Paused
     screenshare next|prev
+    screenshare zoom               toggle 2x zoom around the mouse
     screenshare status             waybar custom module JSON
 
 Talks to OBS over its bundled obs-websocket (localhost, password generated
@@ -57,6 +58,8 @@ RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 CAPTURE_KIND = "wlrobs-scpy"
 STATE = Path.home() / ".cache/screenshare.scene"
 LOG = Path.home() / ".cache/screenshare.log"
+ZOOM_STATE = RUNTIME / "screenshare.zoom"  # name of the zoomed scene
+ZOOM = 2
 
 KANAGAWA_BG = 0xFF281F1F  # #1f1f28 as OBS ABGR
 KANAGAWA_FG = 0xFFBAD7DC  # #dcd7ba as OBS ABGR
@@ -336,6 +339,8 @@ def fit(obs, scene, item_id, crop=None, width=0):
         "boundsHeight": CANVAS[1],
         "cropLeft": width // 2 if crop == "right" else 0,
         "cropRight": width // 2 if crop == "left" else 0,
+        "cropTop": 0,
+        "cropBottom": 0,
     }
     obs.call("SetSceneItemTransform", sceneName=scene, sceneItemId=item_id, sceneItemTransform=transform)
 
@@ -427,6 +432,7 @@ def projector_open():
 
 
 def set_scene(obs, name):
+    unzoom(obs)
     obs.call("SetCurrentProgramScene", sceneName=name)
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text(name)
@@ -514,16 +520,78 @@ def step(delta):
     set_scene(obs, names[(i + delta) % len(names)])
 
 
+def scene_capture(obs, scene):
+    """(monitor info, crop, scene item id) behind a capture scene, else None."""
+    entry = next(((m, c) for n, m, c in SCENES if n == scene), None)
+    live = monitors()
+    if entry is None or entry[0] not in live:
+        return None
+    monitor, crop = entry
+    items = obs.call("GetSceneItemList", sceneName=scene)["sceneItems"]
+    item = next((i for i in items if i["sourceName"] == capture_input(monitor)), None)
+    return (live[monitor], crop, item["sceneItemId"]) if item else None
+
+
+def unzoom(obs):
+    if not ZOOM_STATE.exists():
+        return
+    scene = ZOOM_STATE.read_text().strip()
+    ZOOM_STATE.unlink()
+    found = scene_capture(obs, scene)
+    if found:
+        mon, crop, item_id = found
+        fit(obs, scene, item_id, crop, mon["width"])
+    refresh_waybar()
+
+
+def zoom(obs):
+    """Toggle a ZOOM-x, canvas-shaped crop of the live view around the mouse."""
+    scene = obs.call("GetCurrentProgramScene")["currentProgramSceneName"]
+    if ZOOM_STATE.exists():
+        unzoom(obs)
+        return
+    found = scene_capture(obs, scene)
+    if not found:
+        return
+    mon, crop, item_id = found
+    w, h = mon["width"], mon["height"]
+    # The part of the monitor the unzoomed view shows, in capture pixels.
+    vx = w // 2 if crop == "right" else 0
+    vw = w // 2 if crop else w
+
+    zh = h // ZOOM
+    zw = min(vw, zh * CANVAS[0] // CANVAS[1])
+
+    # Cursor is in layout (logical) coordinates; captures are in pixels.
+    cursor = json.loads(subprocess.run(["hyprctl", "-j", "cursorpos"], capture_output=True, text=True).stdout)
+    cx = (cursor["x"] - mon["x"]) * mon["scale"]
+    cy = (cursor["y"] - mon["y"]) * mon["scale"]
+    if not (vx <= cx < vx + vw and 0 <= cy < h):
+        cx, cy = vx + vw / 2, h / 2  # mouse elsewhere: zoom the middle
+
+    x = int(min(max(cx - zw / 2, vx), vx + vw - zw))
+    y = int(min(max(cy - zh / 2, 0), h - zh))
+    obs.call(
+        "SetSceneItemTransform",
+        sceneName=scene,
+        sceneItemId=item_id,
+        sceneItemTransform={"cropLeft": x, "cropRight": w - x - zw, "cropTop": y, "cropBottom": h - y - zh},
+    )
+    ZOOM_STATE.write_text(scene)
+    refresh_waybar()
+
+
 def status():
     if not active():
         out = {"text": "󰍺", "class": "inactive", "tooltip": "Screen share view off\nclick: start"}
     else:
         scene = STATE.read_text().strip() if STATE.exists() else "?"
+        zoomed = f" 󰍉 {ZOOM}x" if ZOOM_STATE.exists() else ""
         out = {
-            "text": f"󰍹 {scene}",
+            "text": f"󰍹 {scene}{zoomed}",
             "class": "paused" if scene == PAUSED else "live",
             "tooltip": f"Sharing view: {scene}\nshare the {OUTPUT} screen in your call\n"
-            "click: stop  scroll: switch view",
+            "click: stop  scroll: switch view  middle-click: zoom",
         }
     print(json.dumps(out, ensure_ascii=False))
 
@@ -556,6 +624,9 @@ def main(argv):
         elif cmd in ("next", "prev"):
             if active():
                 step(1 if cmd == "next" else -1)
+        elif cmd == "zoom":
+            if active():
+                zoom(connect())
         elif cmd == "status":
             status()
         else:

@@ -30,6 +30,7 @@
     "interval": 10,
     "signal": 9,
     "on-click": "$HOME/.local/scripts/screenshare toggle",
+    "on-click-middle": "$HOME/.local/scripts/screenshare zoom",
     "on-scroll-up": "$HOME/.local/scripts/screenshare prev",
     "on-scroll-down": "$HOME/.local/scripts/screenshare next"
   },
