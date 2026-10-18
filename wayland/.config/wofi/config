@@ -1,6 +1,6 @@
 show=drun
-width=80
-height=60
+width=900
+height=500
 lines=10
 location=top
 prompt=run

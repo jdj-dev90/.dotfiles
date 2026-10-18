@@ -1,0 +1,40 @@
+#!/bin/sh
+# Open a floating TUI popup from a waybar module (styled by a Hyprland
+# windowrule on the dev.waybar.* class). Each popup prefers the nicer TUI and
+# falls back to what ships with the base tools.
+set -eu
+
+pick() {
+  for c in "$@"; do
+    if command -v "$c" >/dev/null 2>&1; then
+      printf '%s\n' "$c"
+      return
+    fi
+  done
+}
+
+case "${1:-}" in
+  bluetooth) title=Bluetooth; cmd="$(pick bluetui bluetoothctl)" ;;
+  audio)     title=Audio;     cmd="$(pick wiremix ncpamixer pulsemixer)" ;;
+  *)
+    echo "usage: waybar-popup bluetooth|audio" >&2
+    exit 2
+    ;;
+esac
+
+[ -n "${cmd}" ] || exit 1
+
+# ncpamixer defaults to the Playback tab, which is empty when nothing plays.
+[ "${cmd}" = ncpamixer ] && cmd="ncpamixer --tab=output"
+
+# Toggle: clicking the module again closes an open popup.
+class="dev.waybar.$1"
+addr="$(hyprctl clients -j | jq -r --arg c "${class}" '.[] | select(.class == $c) | .address' | head -n 1)"
+if [ -n "${addr}" ]; then
+  hyprctl dispatch closewindow "address:${addr}" >/dev/null
+  exit 0
+fi
+
+# cmd is word-split on purpose: it may carry flags (e.g. ncpamixer --tab=output).
+# shellcheck disable=SC2086
+exec ghostty --class="${class}" --title="${title}" -e ${cmd}

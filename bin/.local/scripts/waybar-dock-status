@@ -1,0 +1,19 @@
+#!/bin/sh
+# Waybar custom module: report the monitor profile hypr-monitor-profile applied.
+# Refreshed by `pkill -RTMIN+8 waybar` from hypr-monitor-profile.
+set -eu
+
+target="$(readlink "${HOME}/.config/hypr/monitors.conf" 2>/dev/null || true)"
+
+case "${target}" in
+  *docked*)
+    outputs="$(hyprctl monitors -j 2>/dev/null | jq -r '[.[].name] | join(", ")' 2>/dev/null || true)"
+    printf '{"text":"󰍹 docked","class":"docked","tooltip":"Docked profile\\n%s"}\n' "${outputs}"
+    ;;
+  *laptop*)
+    printf '{"text":"󰌢 laptop","class":"laptop","tooltip":"Laptop profile"}\n'
+    ;;
+  *)
+    printf '{"text":"󰍹 ?","class":"unknown","tooltip":"No monitor profile applied"}\n'
+    ;;
+esac

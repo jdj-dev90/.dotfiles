@@ -78,6 +78,9 @@ if command -v hyprctl >/dev/null 2>&1; then
   fi
 fi
 
+# Refresh the waybar dock indicator.
+pkill -RTMIN+8 -x waybar 2>/dev/null || true
+
 # Re-flow any live tmux sessions so they match the new profile.
 if command -v tmux-layout-profile >/dev/null 2>&1; then
   if [ "${profile_name}" = "docked" ]; then

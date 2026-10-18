@@ -38,7 +38,15 @@ window#waybar {
 }
 
 #clock,
+#custom-dock,
+#idle_inhibitor,
+#cpu,
+#memory,
+#temperature,
+#disk,
+#backlight,
 #pulseaudio,
+#bluetooth,
 #network,
 #battery,
 #tray {
@@ -48,8 +56,95 @@ window#waybar {
   background: #2a2a37;
 }
 
+/* Status colours (Kanagawa): green ok -> yellow -> orange -> red. */
+
+#cpu,
+#memory,
+#temperature,
+#disk,
+#battery,
+#network {
+  color: #98bb6c;
+}
+
+#cpu.medium,
+#memory.medium,
+#disk.medium,
+#battery.medium:not(.charging) {
+  color: #e6c384;
+}
+
+#cpu.warning,
+#memory.warning,
+#temperature.warning,
+#disk.warning,
+#battery.warning:not(.charging),
+#network.linked {
+  color: #ff9e3b;
+}
+
+#cpu.critical,
+#memory.critical,
+#temperature.critical,
+#disk.critical,
+#battery.critical:not(.charging),
+#network.disconnected,
+#network.disabled {
+  color: #e82424;
+}
+
+#network.traffic {
+  color: #c8c093;
+}
+
+#battery.charging,
+#battery.plugged {
+  color: #7fb4ca;
+}
+
+#battery.critical:not(.charging) {
+  background: #43242b;
+}
+
+#custom-dock {
+  color: #957fb8;
+}
+
+#custom-dock.docked {
+  color: #7e9cd8;
+}
+
+#idle_inhibitor {
+  color: #727169;
+}
+
+#idle_inhibitor.activated {
+  color: #e6c384;
+}
+
+#backlight {
+  color: #e6c384;
+}
+
+#pulseaudio {
+  color: #7fb4ca;
+}
+
 #pulseaudio.muted {
-  color: #c34043;
+  color: #727169;
+}
+
+#bluetooth {
+  color: #7e9cd8;
+}
+
+#bluetooth.connected {
+  color: #7fb4ca;
+}
+
+#bluetooth.off,
+#bluetooth.disabled {
+  color: #727169;
 }
 
 tooltip {

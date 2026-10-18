@@ -3,3 +3,6 @@ theme = kanagawa
 scrollback-limit = 10000
 window-padding-x = 6
 window-padding-y = 6
+
+# tmux keeps sessions alive when a window closes, so the prompt is noise.
+confirm-close-surface = false

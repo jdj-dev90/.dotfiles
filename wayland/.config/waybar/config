@@ -5,7 +5,7 @@
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["pulseaudio", "network", "battery", "tray"],
+  "modules-right": ["custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "bluetooth", "network#traffic", "network", "battery", "tray"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -23,10 +23,73 @@
     "format": "{:%a %d %b  %H:%M}",
     "tooltip-format": "{:%Y-%m-%d %H:%M:%S}"
   },
+  "custom/dock": {
+    "exec": "$HOME/.local/scripts/waybar-dock-status",
+    "return-type": "json",
+    "interval": 30,
+    "signal": 8
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": { "activated": "󰅶", "deactivated": "󰾪" },
+    "tooltip-format-activated": "Idle inhibitor on",
+    "tooltip-format-deactivated": "Idle inhibitor off"
+  },
+  "cpu": {
+    "interval": 5,
+    "format": " {usage}%",
+    "states": { "medium": 40, "warning": 70, "critical": 90 }
+  },
+  "memory": {
+    "interval": 10,
+    "format": "󰍛 {percentage}%",
+    "tooltip-format": "{used:0.1f}G / {total:0.1f}G used\nswap {swapUsed:0.1f}G / {swapTotal:0.1f}G",
+    "states": { "medium": 50, "warning": 75, "critical": 90 }
+  },
+  "temperature": {
+    "hwmon-path-abs": "/sys/devices/platform/coretemp.0/hwmon",
+    "input-filename": "temp1_input",
+    "warning-threshold": 70,
+    "critical-threshold": 85,
+    "format": "󰔏 {temperatureC}°C",
+    "format-critical": "󱃂 {temperatureC}°C"
+  },
+  "backlight": {
+    "device": "intel_backlight",
+    "on-scroll-up": "$HOME/.local/scripts/backlight up",
+    "on-scroll-down": "$HOME/.local/scripts/backlight down",
+    "format": "󰃠 {percent}%"
+  },
+  "bluetooth": {
+    "format": "󰂯",
+    "format-disabled": "󰂲",
+    "format-off": "󰂲",
+    "format-connected": "󰂱 {num_connections}",
+    "tooltip-format-connected": "{device_enumerate}",
+    "tooltip-format-enumerate-connected": "{device_alias}",
+    "on-click": "$HOME/.local/scripts/waybar-popup bluetooth"
+  },
+  "disk": {
+    "interval": 60,
+    "path": "/",
+    "format": "󰋊 {percentage_used}%",
+    "tooltip-format": "{used} / {total} used on {path}",
+    "states": { "medium": 60, "warning": 80, "critical": 90 }
+  },
   "pulseaudio": {
     "format": " {volume}%",
     "format-muted": " muted",
-    "on-click": "pavucontrol"
+    "on-click": "$HOME/.local/scripts/waybar-popup audio",
+    "on-click-right": "pavucontrol",
+    "on-click-middle": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "scroll-step": 5
+  },
+  "network#traffic": {
+    "interval": 2,
+    "format": "󰁅 {bandwidthDownBytes} 󰁝 {bandwidthUpBytes}",
+    "format-disconnected": "",
+    "min-length": 22,
+    "tooltip-format": "{ifname}  󰁅 {bandwidthDownBits}  󰁝 {bandwidthUpBits}"
   },
   "network": {
     "format-wifi": " {signalStrength}%",
@@ -34,7 +97,9 @@
     "format-disconnected": "󰖪"
   },
   "battery": {
-    "format": "  {capacity}%",
+    "states": { "medium": 50, "warning": 25, "critical": 10 },
+    "format": "{icon} {capacity}%",
+    "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "format-charging": " {capacity}%",
     "format-plugged": " {capacity}%",
     "format-alt": "{time}"

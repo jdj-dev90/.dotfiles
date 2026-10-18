@@ -1,0 +1,50 @@
+#!/bin/sh
+# Laptop panel brightness: step up/down (waybar scroll, brightness keys) and
+# dim/restore on idle (hypridle). Uses logind's SetBrightness, so no root or
+# brightnessctl needed.
+set -eu
+
+device="intel_backlight"
+sys="/sys/class/backlight/${device}"
+state="${XDG_RUNTIME_DIR:-/tmp}/backlight-dim.saved"
+step_percent=5
+min_percent=1
+
+[ -d "${sys}" ] || exit 0
+
+max="$(cat "${sys}/max_brightness")"
+current="$(cat "${sys}/brightness")"
+
+set_brightness() {
+  busctl call org.freedesktop.login1 /org/freedesktop/login1/session/auto \
+    org.freedesktop.login1.Session SetBrightness ssu backlight "${device}" "$1"
+}
+
+step() {
+  target=$((current + $1 * max * step_percent / 100))
+  floor=$((max * min_percent / 100))
+  [ "${target}" -lt "${floor}" ] && target="${floor}"
+  [ "${target}" -gt "${max}" ] && target="${max}"
+  # Manual change while dimmed: drop the saved level so resume won't undo it.
+  rm -f "${state}"
+  set_brightness "${target}"
+}
+
+case "${1:-}" in
+  up) step 1 ;;
+  down) step -1 ;;
+  dim)
+    [ -e "${state}" ] && exit 0
+    printf '%s\n' "${current}" > "${state}"
+    set_brightness $((current * 30 / 100))
+    ;;
+  restore)
+    [ -e "${state}" ] || exit 0
+    set_brightness "$(cat "${state}")"
+    rm -f "${state}"
+    ;;
+  *)
+    echo "usage: backlight up|down|dim|restore" >&2
+    exit 2
+    ;;
+esac
