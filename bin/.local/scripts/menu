@@ -74,6 +74,7 @@ hub() {
   local choice
   choice="$(cat <<'EOF' | pick "menu  (=calc ?search)"
   Windows
+󰚩  Agents
   Projects
 󰍹  Screen share: start/stop
 󰍹  Screen share: next view
@@ -93,6 +94,7 @@ EOF
     =*) calc "${choice#=}" ;;
     \?*) chromium "https://www.google.com/search?q=$(jq -rn --arg q "${choice#\?}" '$q|@uri')" >/dev/null 2>&1 & ;;
     *Windows) windows ;;
+    *Agents) "${scripts}/agent-status" menu ;;
     *Projects) projects ;;
     *"start/stop") "${scripts}/screenshare" toggle ;;
     *"next view") "${scripts}/screenshare" next ;;

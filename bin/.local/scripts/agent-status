@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Claude Code session tracker for waybar.
+#
+#   agent-status hook working|waiting|done|end   Claude Code hooks (JSON on stdin)
+#   agent-status waybar                          waybar custom module JSON
+#   agent-status menu                            wofi list; jump to the agent's tmux pane
+#
+# One state file per session in $XDG_RUNTIME_DIR/agent-status/<session_id>.
+set -uo pipefail
+
+dir="${XDG_RUNTIME_DIR:-/tmp}/agent-status"
+mkdir -p "${dir}"
+
+refresh() { pkill -RTMIN+13 -x waybar 2>/dev/null || true; }
+
+# Is the user looking at this pane right now (terminal focused + pane active)?
+watching() {
+  local pane="$1"
+  [ "$(hyprctl -j activewindow 2>/dev/null | jq -r .class 2>/dev/null)" = com.mitchellh.ghostty ] || return 1
+  [ -n "${pane}" ] || return 0
+  [ "$(tmux display -p -t "${pane}" '#{session_attached}#{window_active}#{pane_active}' 2>/dev/null)" = 111 ]
+}
+
+label() { # project name from cwd, plus tmux session:window if known
+  local cwd="$1" pane="$2" where
+  where="$(tmux display -p -t "${pane}" '#S:#W' 2>/dev/null || true)"
+  printf '%s%s' "$(basename "${cwd}")" "${where:+ (${where})}"
+}
+
+hook() {
+  local state="$1" input id cwd prev file
+  input="$(cat)"
+  id="$(jq -r '.session_id // empty' <<<"${input}")"
+  [ -n "${id}" ] || return 0
+  file="${dir}/${id}"
+  if [ "${state}" = end ]; then
+    rm -f "${file}"
+    refresh
+    return 0
+  fi
+  cwd="$(jq -r '.cwd // empty' <<<"${input}")"
+  prev="$(jq -r '.state // empty' "${file}" 2>/dev/null || true)"
+  jq -n --arg state "${state}" --arg cwd "${cwd}" --arg pane "${TMUX_PANE:-}" \
+    --argjson at "$(date +%s)" '{state: $state, cwd: $cwd, pane: $pane, at: $at}' > "${file}.tmp" \
+    && mv "${file}.tmp" "${file}"
+  [ "${state}" = "${prev}" ] && return 0
+  refresh
+  if [ "${state}" != working ] && ! watching "${TMUX_PANE:-}"; then
+    local what="finished" urgency=normal
+    [ "${state}" = waiting ] && what="needs you" && urgency=critical
+    notify-send -a claude -u "${urgency}" "Agent ${what}" "$(label "${cwd}" "${TMUX_PANE:-}")"
+  fi
+}
+
+# Drop sessions whose tmux pane is gone, or stale non-tmux ones (12h).
+prune() {
+  local panes now f pane at
+  panes="$(tmux list-panes -a -F '#{pane_id}' 2>/dev/null || true)"
+  now="$(date +%s)"
+  for f in "${dir}"/*; do
+    [ -f "${f}" ] || continue
+    pane="$(jq -r .pane "${f}" 2>/dev/null)"
+    at="$(jq -r .at "${f}" 2>/dev/null)"
+    if [ -n "${pane}" ]; then
+      grep -qx -- "${pane}" <<<"${panes}" || rm -f "${f}"
+    elif [ $((now - at)) -gt 43200 ]; then
+      rm -f "${f}"
+    fi
+  done
+}
+
+sessions() { # JSON array of all sessions, waiting first
+  cat "${dir}"/* 2>/dev/null | jq -s 'sort_by({waiting: 0, working: 1, done: 2}[.state], -.at)'
+}
+
+waybar() {
+  prune
+  local all working waiting done text cls tip
+  all="$(sessions)"
+  working="$(jq '[.[] | select(.state == "working")] | length' <<<"${all}")"
+  waiting="$(jq '[.[] | select(.state == "waiting")] | length' <<<"${all}")"
+  done="$(jq '[.[] | select(.state == "done")] | length' <<<"${all}")"
+  if [ $((working + waiting + done)) -eq 0 ]; then
+    printf '{"text":"","class":"none"}\n'
+    return
+  fi
+  text="󰚩"
+  [ "${working}" -gt 0 ] && text="${text} ${working}"
+  [ "${waiting}" -gt 0 ] && text="${text} 󰋗 ${waiting}"
+  [ "${done}" -gt 0 ] && text="${text} 󰄬 ${done}"
+  cls=idle
+  [ "${working}" -gt 0 ] && cls=working
+  [ "${waiting}" -gt 0 ] && cls=waiting
+  tip="$(jq -r '.[] | "\(.state): \(.cwd | split("/") | last)"' <<<"${all}")"
+  jq -cn --arg text "${text}" --arg cls "${cls}" --arg tip "${tip}"$'\n'"click: jump to an agent" \
+    '{text: $text, class: $cls, tooltip: $tip}'
+}
+
+menu() {
+  prune
+  local all choice n pane client
+  all="$(sessions)"
+  [ "$(jq length <<<"${all}")" -gt 0 ] || { notify-send -a claude "No agents running"; return; }
+  choice="$(jq -r 'to_entries[] | "\(.key + 1). [\(.value.state)] \(.value.cwd | split("/") | last)"' <<<"${all}" \
+    | wofi --dmenu --insensitive --prompt agent 2>/dev/null)" || return
+  n="${choice%%.*}"
+  [[ "${n}" =~ ^[0-9]+$ ]] || return
+  pane="$(jq -r ".[$((n - 1))].pane" <<<"${all}")"
+  [ -n "${pane}" ] || { notify-send -a claude "That agent isn't in tmux"; return; }
+  client="$(tmux list-clients -F '#{client_activity} #{client_name}' 2>/dev/null | sort -rn | head -n 1 | cut -d' ' -f2)"
+  tmux switch-client ${client:+-c "${client}"} -t "${pane}" \; select-window -t "${pane}" \; select-pane -t "${pane}"
+  hyprctl dispatch focuswindow class:com.mitchellh.ghostty >/dev/null
+}
+
+case "${1:-}" in
+  hook) hook "${2:?state}" ;;
+  waybar) waybar ;;
+  menu) menu ;;
+  *) sed -n '2,8p' "$0" >&2; exit 2 ;;
+esac

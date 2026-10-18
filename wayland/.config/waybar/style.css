@@ -38,6 +38,7 @@ window#waybar {
 }
 
 #clock,
+#custom-agents,
 #custom-rec,
 #custom-share,
 #mpris,
@@ -110,6 +111,19 @@ window#waybar {
 
 #battery.critical:not(.charging) {
   background: #43242b;
+}
+
+#custom-agents {
+  color: #727169;
+}
+
+#custom-agents.working {
+  color: #7e9cd8;
+}
+
+#custom-agents.waiting {
+  color: #1f1f28;
+  background: #ff9e3b;
 }
 
 #custom-rec.recording {

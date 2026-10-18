@@ -6,7 +6,7 @@
   "spacing": 8,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "tray", "custom/power"],
+  "modules-right": ["custom/agents", "custom/rec", "custom/share", "mpris", "custom/dock", "idle_inhibitor", "cpu", "memory", "temperature", "disk", "backlight", "pulseaudio", "pulseaudio#mic", "bluetooth", "network#traffic", "network", "battery", "custom/nightlight", "custom/updates", "tray", "custom/power"],
   "hyprland/workspaces": {
     "disable-scroll": true,
     "format": "{name}",
@@ -23,6 +23,13 @@
   "clock": {
     "format": "{:%a %d %b  %H:%M}",
     "tooltip-format": "{:%Y-%m-%d %H:%M:%S}"
+  },
+  "custom/agents": {
+    "exec": "$HOME/.local/scripts/agent-status waybar",
+    "return-type": "json",
+    "interval": 30,
+    "signal": 13,
+    "on-click": "$HOME/.local/scripts/agent-status menu"
   },
   "custom/rec": {
     "exec": "$HOME/.local/scripts/screenrec status",
