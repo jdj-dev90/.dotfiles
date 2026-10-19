@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# glab with its token from pass instead of the GNOME keyring, whose daemon
+# crashes under short-lived glab clients and comes back locked (an unlock
+# prompt every time). Tokens live at pass glab/<host>; a host without an
+# entry runs glab unchanged.
+set -euo pipefail
+
+real=/usr/bin/glab
+
+host_of() { # host from a URL, scp-style remote or bare host
+  local s="${1#*://}"
+  s="${s#*@}"
+  s="${s%%[:/]*}"
+  printf '%s' "${s}"
+}
+
+host="${GITLAB_HOST:-}"
+stdin=""
+if [ -z "${host}" ] && [ "${1:-}" = auth ] && [ "${2:-}" = git-credential ]; then
+  # git passes the host on stdin; read it, then hand the same input on.
+  stdin="$(cat)"
+  host="$(sed -n 's/^host=//p' <<<"${stdin}")"
+fi
+if [ -z "${host}" ]; then
+  prev=""
+  for a in "$@"; do
+    case "${prev}" in -R | --repo) [[ "${a}" == *://* ]] && host="$(host_of "${a}")" ;; esac
+    case "${a}" in --repo=*://* | -R=*://*) host="$(host_of "${a#*=}")" ;; esac
+    prev="${a}"
+  done
+fi
+if [ -z "${host}" ]; then
+  remote="$(git remote get-url origin 2>/dev/null || true)"
+  [ -n "${remote}" ] && host="$(host_of "${remote}")"
+fi
+[ -n "${host}" ] || host=gitlab.com # glab's own default
+
+if [ -z "${GITLAB_TOKEN:-}" ] && [ -f "${PASSWORD_STORE_DIR:-${HOME}/.password-store}/glab/${host}.gpg" ]; then
+  GITLAB_TOKEN="$(pass show "glab/${host}" | head -n 1)"
+  export GITLAB_TOKEN
+fi
+
+if [ -n "${stdin}" ]; then
+  exec "${real}" "$@" <<<"${stdin}"
+fi
+exec "${real}" "$@"
